@@ -631,15 +631,15 @@
         // 当前 Tab 对应的数据列表
         const activeTabList = computed(() => activeTab.value === 'nasdaq' ? nasdaq100List.value : sp500List.value);
 
-        // 当前 Tab 对应的平均溢价率与联动乘数
+        // 当前 Tab 对应的平均溢价率与联动乘数（全无效时严格保留 null，杜绝 || 0 兜底）
         const activeAvgPremium = computed(() => {
-          if (activeTab.value === 'nasdaq') return macro.value.avg_premium || 0;
-          return macro.value.sp500_avg_premium || 0;
+          if (activeTab.value === 'nasdaq') return macro.value.avg_premium;
+          return macro.value.sp500_avg_premium;
         });
 
         const activeScaleFactor = computed(() => {
-          if (activeTab.value === 'nasdaq') return macro.value.scale_factor || '1.0000';
-          return macro.value.sp500_scale_factor || '1.0000';
+          if (activeTab.value === 'nasdaq') return macro.value.scale_factor;
+          return macro.value.sp500_scale_factor;
         });
 
         // 当前分类中，全场实时溢价率最低的标的代码（必须具有有效现价且估值非空）
@@ -666,7 +666,10 @@
         const arbTargetCode = ref('513390');
         const arbShares = ref(1000);
 
-        // 测算器适用的有效纳指标的名单（排除估值缺失与无现价标的）
+        // 测算器适用的有效标的名单（排除估值缺失与无现价标的）
+        const validActiveList = computed(() => {
+          return activeTabList.value.filter(x => x.est_premium !== null && x.est_premium !== undefined && x.price !== null && x.price > 0);
+        });
         const validNasdaq100List = computed(() => {
           return nasdaq100List.value.filter(x => x.est_premium !== null && x.est_premium !== undefined && x.price !== null && x.price > 0);
         });
@@ -926,6 +929,8 @@
           arbSourceCode,
           arbTargetCode,
           arbShares,
+          validNasdaq100List,
+          validActiveList,
           arbSource,
           arbTarget,
           arbSpread,
