@@ -8,11 +8,10 @@ RUN apk add --no-cache tzdata && \
     cp /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone
 
-# 复制服务端代码与前端资源（零第三方 pip 依赖）
+# 复制服务端代码、前端资源与初始数据目录（零第三方 pip 依赖）
 COPY server.py ./
 COPY static/ ./static/
-COPY nasdaq_symbols_cache.json ./
-COPY history_daily.json ./
+COPY data/ ./data/
 
 # 暴露端口（默认 8000）
 ENV PORT=8000

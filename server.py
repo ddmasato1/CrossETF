@@ -31,32 +31,49 @@ HISTORY_FILE = os.path.join(DATA_DIR, "history_daily.json")
 
 
 def ensure_data_storage():
-    """确保数据目录存在，并在首次启动时自动从根目录种子文件平滑同步初始数据"""
+    """确保持久化数据目录存在"""
     os.makedirs(DATA_DIR, exist_ok=True)
-    for filename in ["nasdaq_symbols_cache.json", "history_daily.json"]:
-        dest_path = os.path.join(DATA_DIR, filename)
-        seed_path = os.path.join(CURRENT_DIR, filename)
-        if not os.path.exists(dest_path) and os.path.isfile(seed_path):
-            try:
-                with open(seed_path, "rb") as sf, open(dest_path, "wb") as df:
-                    df.write(sf.read())
-                print(f"📦 [初始化] 已从种子文件平滑同步 {filename} 至 {DATA_DIR}")
-            except Exception as e:
-                print(f"[Warning] Failed to seed {filename}: {e}", file=sys.stderr)
 
+
+# 跨境 ETF 官方真实综合运作年费率字典（管理费 + 托管费，按日从基金净值计提）
+ETF_TOTAL_FEES = {
+    # 1.00% 梯队 (管理费 0.80% + 托管费 0.20%)
+    "159941": "1.00%",
+    "513110": "1.00%",
+    "159513": "1.00%",
+    "159509": "1.00%",
+    # 0.80% 梯队 (管理费 0.60% + 托管费 0.20%)
+    "159632": "0.80%",
+    "513300": "0.80%",
+    "513100": "0.80%",
+    "513500": "0.80%",
+    # 0.75% 梯队 (管理费 0.60% + 托管费 0.15%)
+    "159612": "0.75%",
+    "159655": "0.75%",
+    "513650": "0.75%",
+    # 0.65% 梯队 (管理费 0.50% + 托管费 0.15%)
+    "513390": "0.65%",
+    "159659": "0.65%",
+    "159660": "0.65%",
+    "513290": "0.65%",
+    # 0.60% 极低费率梯队 (管理费 0.50% + 托管费 0.10%)
+    "513870": "0.60%",
+    "159696": "0.60%",
+    "159501": "0.60%",
+}
 
 # 出厂内置保底名单（仅在首次启动无网络且本地没有任何历史缓存文件时极罕见触发）
 DEFAULT_BROAD_ETFS = [
     {"code": "513390", "name": "纳指100ETF博时", "symbol": "sh513390", "fee": "0.65%", "index_name": "纳斯达克100指数(^NDX)"},
-    {"code": "513110", "name": "纳指ETF华泰柏瑞", "symbol": "sh513110", "fee": "0.65%", "index_name": "纳斯达克100指数(^NDX)"},
-    {"code": "159513", "name": "纳斯达克100ETF大成", "symbol": "sz159513", "fee": "0.65%", "index_name": "纳斯达克100指数(^NDX)"},
-    {"code": "159632", "name": "纳斯达克ETF华安", "symbol": "sz159632", "fee": "0.65%", "index_name": "纳斯达克100指数(^NDX)"},
+    {"code": "513110", "name": "纳指ETF华泰柏瑞", "symbol": "sh513110", "fee": "1.00%", "index_name": "纳斯达克100指数(^NDX)"},
+    {"code": "159513", "name": "纳斯达克100ETF大成", "symbol": "sz159513", "fee": "1.00%", "index_name": "纳斯达克100指数(^NDX)"},
+    {"code": "159632", "name": "纳斯达克ETF华安", "symbol": "sz159632", "fee": "0.80%", "index_name": "纳斯达克100指数(^NDX)"},
     {"code": "159659", "name": "纳斯达克100ETF招商", "symbol": "sz159659", "fee": "0.65%", "index_name": "纳斯达克100指数(^NDX)"},
     {"code": "159660", "name": "纳指ETF汇添富", "symbol": "sz159660", "fee": "0.65%", "index_name": "纳斯达克100指数(^NDX)"},
-    {"code": "513870", "name": "纳指ETF富国", "symbol": "sh513870", "fee": "0.65%", "index_name": "纳斯达克100指数(^NDX)"},
-    {"code": "513300", "name": "纳斯达克ETF华夏", "symbol": "sh513300", "fee": "0.65%", "index_name": "纳斯达克100指数(^NDX)"},
-    {"code": "159696", "name": "纳指ETF易方达", "symbol": "sz159696", "fee": "0.65%", "index_name": "纳斯达克100指数(^NDX)"},
-    {"code": "159941", "name": "纳指ETF广发", "symbol": "sz159941", "fee": "0.80%", "index_name": "纳斯达克100指数(^NDX)"},
+    {"code": "513870", "name": "纳指ETF富国", "symbol": "sh513870", "fee": "0.60%", "index_name": "纳斯达克100指数(^NDX)"},
+    {"code": "513300", "name": "纳斯达克ETF华夏", "symbol": "sh513300", "fee": "0.80%", "index_name": "纳斯达克100指数(^NDX)"},
+    {"code": "159696", "name": "纳指ETF易方达", "symbol": "sz159696", "fee": "0.60%", "index_name": "纳斯达克100指数(^NDX)"},
+    {"code": "159941", "name": "纳指ETF广发", "symbol": "sz159941", "fee": "1.00%", "index_name": "纳斯达克100指数(^NDX)"},
     {"code": "159501", "name": "纳指ETF嘉实", "symbol": "sz159501", "fee": "0.60%", "index_name": "纳斯达克100指数(^NDX)"},
     {"code": "513100", "name": "纳指ETF国泰", "symbol": "sh513100", "fee": "0.80%", "index_name": "纳斯达克100指数(^NDX)"},
 ]
@@ -66,7 +83,7 @@ DEFAULT_SECTOR_ETFS = [
         "code": "159509",
         "name": "纳指科技ETF景顺",
         "symbol": "sz159509",
-        "fee": "0.80%",
+        "fee": "1.00%",
         "index_name": "纳斯达克科技市值加权指数(NDXT)",
         "note": "跟踪科技细分指数，非纳指100宽基"
     },
@@ -74,17 +91,17 @@ DEFAULT_SECTOR_ETFS = [
         "code": "513290",
         "name": "纳指生物科技ETF汇添富",
         "symbol": "sh513290",
-        "fee": "0.80%",
+        "fee": "0.65%",
         "index_name": "纳斯达克生物科技指数(NBI)",
         "note": "跟踪生物科技细分指数，非纳指100宽基"
     }
 ]
 
 DEFAULT_SP500_ETFS = [
-    {"code": "513500", "name": "标普500ETF博时", "symbol": "sh513500", "fee": "0.60%", "index_name": "标普500指数(^SPX)"},
-    {"code": "159612", "name": "标普500ETF国泰", "symbol": "sz159612", "fee": "0.60%", "index_name": "标普500指数(^SPX)"},
-    {"code": "159655", "name": "标普500ETF华夏", "symbol": "sz159655", "fee": "0.60%", "index_name": "标普500指数(^SPX)"},
-    {"code": "513650", "name": "标普500ETF南方", "symbol": "sh513650", "fee": "0.60%", "index_name": "标普500指数(^SPX)"},
+    {"code": "513500", "name": "标普500ETF博时", "symbol": "sh513500", "fee": "0.80%", "index_name": "标普500指数(^SPX)"},
+    {"code": "159612", "name": "标普500ETF国泰", "symbol": "sz159612", "fee": "0.75%", "index_name": "标普500指数(^SPX)"},
+    {"code": "159655", "name": "标普500ETF华夏", "symbol": "sz159655", "fee": "0.75%", "index_name": "标普500指数(^SPX)"},
+    {"code": "513650", "name": "标普500ETF南方", "symbol": "sh513650", "fee": "0.75%", "index_name": "标普500指数(^SPX)"},
 ]
 
 # 行情内存缓存
@@ -174,11 +191,7 @@ def discover_etfs_online(force=False):
                     index_name = "纳斯达克100指数(^NDX)"
                     note = "纳指100核心综合宽基"
 
-                fee = "0.65%"
-                if code == "159501":
-                    fee = "0.60%"
-                elif code in ["159941", "513100", "159509", "513290"]:
-                    fee = "0.80%"
+                fee = ETF_TOTAL_FEES.get(code, "0.65%")
 
                 item = {
                     "code": code,
@@ -199,7 +212,7 @@ def discover_etfs_online(force=False):
             if code.startswith(("159", "513")) and ("标普500" in name or "S&P500" in name or "S&P 500" in name) and "ETF" in name:
                 if not any(k in name for k in ["油气", "生物", "消费", "红利", "信息", "科技", "医药"]):
                     symbol = ("sh" + code) if code.startswith("513") else ("sz" + code)
-                    fee = "0.60%"
+                    fee = ETF_TOTAL_FEES.get(code, "0.75%")
                     sp500_list.append({
                         "code": code,
                         "name": name,
