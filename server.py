@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-A股纳指ETF追踪 - 实时溢价率监控服务
+CrossETF - A股跨境ETF实时溢价率追踪与量化监控服务
 标的池机制：在线优先拉取 + 每日持久化缓存 + 自动降级使用前日缓存，零第三方依赖。
 """
 
@@ -16,15 +16,17 @@ from socketserver import ThreadingMixIn
 import os
 import sys
 import re
+import threading
 
 # 基础配置
-APP_VERSION = "v1.2.0"
+APP_VERSION = "v1.3.0"
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
 
-# 缓存文件路径
+# 缓存与数据文件路径
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 SYMBOLS_CACHE_FILE = os.path.join(CURRENT_DIR, "nasdaq_symbols_cache.json")
+HISTORY_FILE = os.path.join(CURRENT_DIR, "history_daily.json")
 
 # 出厂内置保底名单（仅在首次启动无网络且本地没有任何历史缓存文件时极罕见触发）
 DEFAULT_BROAD_ETFS = [
@@ -423,6 +425,10 @@ def get_market_data():
         iopv = None
         iopv_premium = None
         nav_t1 = None
+        open_price = None
+        high_price = None
+        low_price = None
+        trade_time = ""
 
         if fields:
             try:
@@ -431,6 +437,24 @@ def get_market_data():
                     p = float(fields[3])
                     if math.isfinite(p) and p > 0:
                         price = round(p, 3)
+
+                if len(fields) > 5 and fields[5]:
+                    op = float(fields[5])
+                    if math.isfinite(op) and op > 0:
+                        open_price = round(op, 3)
+
+                if len(fields) > 33 and fields[33]:
+                    hp = float(fields[33])
+                    if math.isfinite(hp) and hp > 0:
+                        high_price = round(hp, 3)
+
+                if len(fields) > 34 and fields[34]:
+                    lp = float(fields[34])
+                    if math.isfinite(lp) and lp > 0:
+                        low_price = round(lp, 3)
+
+                if len(fields) > 30 and fields[30]:
+                    trade_time = str(fields[30]).strip()
 
                 if len(fields) > 31 and fields[31]:
                     c = float(fields[31])
@@ -559,6 +583,10 @@ def get_market_data():
             "volume_hand": volume_hand,
             "premium_level": premium_level,
             "premium_advice": premium_advice,
+            "open": open_price,
+            "high": high_price,
+            "low": low_price,
+            "trade_time": trade_time,
         }
         if is_sector:
             result["note"] = item.get("note", "细分行业标的")
@@ -638,7 +666,179 @@ def get_market_data():
 
     cache_data["timestamp"] = now
     cache_data["payload"] = payload
+
+    # 静默沉淀收盘数据（仅在收盘后且今日未归档时触发，零额外开销）
+    try:
+        record_daily_history(payload)
+    except Exception as e:
+        print(f"[Error] record_daily_history error: {e}", file=sys.stderr)
+
     return payload
+
+
+def record_daily_history(payload):
+    """
+    静默沉淀每日收盘切片至 history_daily.json
+    - 条件：当前已到交易日收盘时间（15:00之后），且今日尚未归档
+    - 幂等性：同一交易日仅归档一次
+    - 安全性：写入临时文件后原子替换，防止断电导致 JSON 损坏
+    """
+    if not payload:
+        return
+
+    # 1. 从标的行情中探测有效交易日和收盘状态
+    all_etfs = (payload.get("nasdaq100_etfs") or []) + (payload.get("sp500_etfs") or []) + (payload.get("sector_etfs") or [])
+    if not all_etfs:
+        return
+
+    trade_date = ""
+    is_closed = False
+
+    for item in all_etfs:
+        tt = item.get("trade_time") or ""
+        # 腾讯行情时间格式示例: "20261016161436" (14位)
+        if len(tt) >= 8 and tt[:8].isdigit():
+            trade_date = f"{tt[0:4]}-{tt[4:6]}-{tt[6:8]}"
+            if len(tt) >= 12 and tt[8:12].isdigit():
+                hour_min = int(tt[8:12])
+                if hour_min >= 1500:
+                    is_closed = True
+            break
+
+    # 容错：若未提取到 trade_time，则基于系统时间判定（工作日15点之后）
+    if not trade_date:
+        now_lt = time.localtime()
+        if now_lt.tm_wday < 5:
+            trade_date = time.strftime("%Y-%m-%d", now_lt)
+            if now_lt.tm_hour >= 15:
+                is_closed = True
+
+    # 仅在确认收盘且日期有效时归档
+    if not trade_date or not is_closed:
+        return
+
+    # 2. 读取现有历史记录
+    history_data = {}
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                history_data = json.load(f)
+        except Exception as e:
+            print(f"[Warning] Failed to load history file: {e}", file=sys.stderr)
+            history_data = {}
+
+    # 3. 幂等检查：今日已归档则直接返回，不重复写
+    if trade_date in history_data:
+        return
+
+    # 4. 组装归档条目
+    macro = payload.get("macro", {})
+    min_nas = macro.get("min_premium_etf")
+    min_sp = macro.get("sp500_min_premium_etf")
+
+    def build_etf_record(etf, category):
+        return {
+            "code": etf.get("code"),
+            "name": etf.get("name"),
+            "category": category,
+            "close": etf.get("price"),
+            "open": etf.get("open"),
+            "high": etf.get("high"),
+            "low": etf.get("low"),
+            "iopv": etf.get("iopv"),
+            "premium": etf.get("est_premium"),
+            "change_pct": etf.get("change_pct"),
+            "amount_wan": etf.get("amount_wan")
+        }
+
+    etfs_archive = []
+    for x in (payload.get("nasdaq100_etfs") or []):
+        etfs_archive.append(build_etf_record(x, "nasdaq100"))
+
+    for x in (payload.get("sector_etfs") or []):
+        etfs_archive.append(build_etf_record(x, "nasdaq_tech"))
+
+    for x in (payload.get("sp500_etfs") or []):
+        etfs_archive.append(build_etf_record(x, "sp500"))
+
+    record = {
+        "date": trade_date,
+        "archive_time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "macro": {
+            "nasdaq_avg_premium": macro.get("avg_premium"),
+            "sp500_avg_premium": macro.get("sp500_avg_premium"),
+            "nasdaq_best": {
+                "code": min_nas["code"],
+                "name": min_nas["name"],
+                "premium": min_nas.get("est_premium"),
+                "close": min_nas.get("price"),
+                "iopv": min_nas.get("iopv")
+            } if min_nas else None,
+            "sp500_best": {
+                "code": min_sp["code"],
+                "name": min_sp["name"],
+                "premium": min_sp.get("est_premium"),
+                "close": min_sp.get("price"),
+                "iopv": min_sp.get("iopv")
+            } if min_sp else None,
+        },
+        "etfs": etfs_archive
+    }
+
+    # 5. 原子安全写入
+    history_data[trade_date] = record
+    try:
+        temp_file = HISTORY_FILE + ".tmp"
+        with open(temp_file, "w", encoding="utf-8") as f:
+            json.dump(history_data, f, ensure_ascii=False, indent=2)
+        os.replace(temp_file, HISTORY_FILE)
+        print(f"[{time.strftime('%H:%M:%S')}] 💾 [收盘归档] 已成功沉淀 {trade_date} 收盘历史数据至 {os.path.basename(HISTORY_FILE)}", flush=True)
+    except Exception as e:
+        print(f"[Error] Failed to write history file: {e}", file=sys.stderr)
+
+
+def daily_collector_daemon():
+    """
+    后台自主收盘数据采集守护线程
+    - 针对云主机/服务器常驻运行场景
+    - 巡检周期：每 60 秒检查一次
+    - 触发窗口：工作日 15:02 ~ 15:30（收盘后且各交易所行情已完全固化）
+    - 幂等性：若今日已沉淀，绝不重复抓取
+    """
+    while True:
+        try:
+            now_lt = time.localtime()
+            # 周一至周五工作日 (tm_wday: 0=周一 ... 4=周五)
+            if now_lt.tm_wday < 5:
+                # 下午 15:02 到 15:30 之间
+                if now_lt.tm_hour == 15 and 2 <= now_lt.tm_min <= 30:
+                    today_str = time.strftime("%Y-%m-%d", now_lt)
+
+                    already_archived = False
+                    if os.path.exists(HISTORY_FILE):
+                        try:
+                            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                                hdata = json.load(f)
+                                if today_str in hdata:
+                                    already_archived = True
+                        except Exception:
+                            pass
+
+                    if not already_archived:
+                        print(f"[{time.strftime('%H:%M:%S')}] ⏰ [Daemon] 检测到工作日已收盘且今日尚未归档，自主触发收盘采集...", flush=True)
+                        cache_data["payload"] = None  # 穿透缓存，强制拉取最新收盘数据
+                        get_market_data()
+        except Exception as e:
+            print(f"[Daemon Error] {e}", file=sys.stderr)
+
+        time.sleep(60)
+
+
+def start_daily_collector_daemon():
+    """启动后台守护线程"""
+    t = threading.Thread(target=daily_collector_daemon, daemon=True, name="DailyCollectorDaemon")
+    t.start()
+    print("🤖 [Daemon] 每日收盘自主采集守护线程已就绪 (工作日 15:02 自动巡检)")
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -696,7 +896,66 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(content)
             return
 
-        # 路由 3: 健康检查
+        # 路由 3: 每日历史收盘归档查询接口
+        if req_path in ["/api/history", "/api/history/"]:
+            # 支持可选参数 days，如 /api/history?days=30
+            days_limit = None
+            if parsed.query:
+                for param in parsed.query.split("&"):
+                    if param.startswith("days="):
+                        try:
+                            days_limit = int(param.split("=")[1])
+                        except Exception:
+                            pass
+
+            history_data = {}
+            if os.path.exists(HISTORY_FILE):
+                try:
+                    with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                        history_data = json.load(f)
+                except Exception as e:
+                    print(f"[Error] Reading history file: {e}", file=sys.stderr)
+
+            # 按日期倒序排列（最新在前）
+            sorted_dates = sorted(history_data.keys(), reverse=True)
+            if days_limit and days_limit > 0:
+                sorted_dates = sorted_dates[:days_limit]
+
+            filtered_history = {d: history_data[d] for d in sorted_dates}
+
+            res = {
+                "code": 200,
+                "version": APP_VERSION,
+                "total_days": len(filtered_history),
+                "data": filtered_history
+            }
+            content = json.dumps(res, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
+        # 路由 3.1: 导出下载历史数据文件
+        if req_path in ["/api/history/download", "/api/history/download/"]:
+            if os.path.exists(HISTORY_FILE):
+                with open(HISTORY_FILE, "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Disposition", 'attachment; filename="crossetf_history_daily.json"')
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
+            else:
+                self.send_error(404, "History file not found")
+                return
+
+        # 路由 4: 健康检查
         if req_path == "/health":
             body = b'{"status": "ok"}'
             self.send_response(200)
@@ -778,14 +1037,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
 
 def run_server():
-    print("🔍 正在在线检测并同步纳指 ETF 标的池...")
+    print("🔍 正在在线检测并同步 ETF 标的池...")
     discover_etfs_online()
+    start_daily_collector_daemon()
     server_address = ("0.0.0.0", PORT)
     httpd = ThreadedHTTPServer(server_address, DashboardHandler)
     print("=" * 60)
-    print(f"🚀 A股纳指与标普500 ETF追踪看板服务已启动！[{APP_VERSION}]")
+    print(f"🚀 CrossETF 跨境ETF实时溢价追踪服务已启动！[{APP_VERSION}]")
     print(f"👉 本地访问地址: http://127.0.0.1:{PORT}")
     print(f"👉 实时行情 API: http://127.0.0.1:{PORT}/api/quotes")
+    print(f"👉 历史归档 API: http://127.0.0.1:{PORT}/api/history")
     print(f"👉 标的同步 API: http://127.0.0.1:{PORT}/api/refresh-symbols")
     print("💡 按 Ctrl+C 可停止服务")
     print("=" * 60)

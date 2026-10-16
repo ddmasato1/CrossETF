@@ -1,6 +1,6 @@
-# A股纳指与标普500 ETF追踪终端 (NasDashboard)
+# CrossETF - A股跨境ETF实时溢价追踪与收盘沉淀终端
 
-基于第一性原理与公募基金 QDII 联动估值模型构建的轻量级金融看板。实时联动**芝商所纳斯达克期货（CME NQ）**、**标普500期货（CME ES）**与**离岸人民币汇率（USD/CNH）**，估算 A 股场内纳斯达克 100 与标普 500 ETF 的实时日内联动参考估值（实时 EST），动态监控二级市场折溢价率与同指数价差空间。
+极简、坚固的跨境 ETF 实时折溢价量化监控看板。立足境内 A 股交易市场，盘中实时跟踪**纳斯达克 100**、**标普 500** 及科技细分跨境 ETF 的官方 IOPV 溢价率，全自动沉淀每日收盘情绪档案，内置同类标的价差测算。零第三方依赖，专为云主机与服务器 7×24 小时常驻运行打造。
 
 ---
 
@@ -91,15 +91,16 @@ docker compose down
 ### 方式二：Docker 原生运行
 ```bash
 # 构建轻量镜像（仅约 50MB，无第三方 pip 依赖）
-docker build -t etf-dashboard:latest .
+docker build -t cross-etf:latest .
 
-# 启动容器并挂载缓存
+# 启动容器并挂载缓存与历史数据
 docker run -d \
-  --name etf-dashboard \
+  --name cross-etf \
   -p 8000:8000 \
   -v $(pwd)/nasdaq_symbols_cache.json:/app/nasdaq_symbols_cache.json \
+  -v $(pwd)/history_daily.json:/app/history_daily.json \
   --restart unless-stopped \
-  etf-dashboard:latest
+  cross-etf:latest
 ```
 
 ### 方式三：运行本地脚本启动
@@ -117,6 +118,7 @@ python3 server.py
 
 API 接口说明：
 * 实时行情数据：`GET http://127.0.0.1:8000/api/quotes`
+* 每日收盘历史归档：`GET http://127.0.0.1:8000/api/history`（支持 `?days=30` 参数）
 * 强制在线重扫标的：`GET http://127.0.0.1:8000/api/refresh-symbols`
 * 容器健康检查：`GET http://127.0.0.1:8000/health`
 

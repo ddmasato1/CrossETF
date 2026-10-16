@@ -13,9 +13,12 @@ NasDashboard 核心逻辑与验收测试脚本
 8. 全无效时均值与极值输出 None
 """
 
+import os
 import sys
+import json
 import math
 import urllib.parse
+import server
 from server import DashboardHandler
 
 def run_tests():
@@ -150,8 +153,50 @@ def run_tests():
     assert avg_p is None and min_item is None and max_item is None, "全无效时均值与极值必须全为 None"
     print("✅ 测试 6 通过: 升降序空值稳定沉底，全无效时均值/极值严格返回 None")
 
+    # 7. 测试每日收盘历史沉淀与幂等性
+    test_hist_file = os.path.join(server.CURRENT_DIR, "test_history_tmp.json")
+    orig_hist_file = server.HISTORY_FILE
+    try:
+        server.HISTORY_FILE = test_hist_file
+        if os.path.exists(test_hist_file):
+            os.remove(test_hist_file)
+
+        mock_payload = {
+            "macro": {
+                "avg_premium": 2.5,
+                "sp500_avg_premium": 1.2,
+                "min_premium_etf": {"code": "159941", "name": "纳指ETF", "est_premium": 0.8, "price": 1.7, "iopv": 1.5},
+                "sp500_min_premium_etf": {"code": "513500", "name": "标普500", "est_premium": 0.5, "price": 1.5, "iopv": 1.5}
+            },
+            "nasdaq100_etfs": [
+                {"code": "159941", "name": "纳指ETF", "price": 1.7, "open": 1.68, "high": 1.72, "low": 1.67, "iopv": 1.5, "est_premium": 0.8, "trade_time": "20261016150200"}
+            ],
+            "sp500_etfs": [],
+            "sector_etfs": []
+        }
+        # 首次归档
+        server.record_daily_history(mock_payload)
+        assert os.path.exists(test_hist_file), "历史归档文件必须成功生成"
+        with open(test_hist_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        assert "2026-10-16" in data, "必须包含对应交易日条目"
+        assert data["2026-10-16"]["macro"]["nasdaq_avg_premium"] == 2.5
+        assert len(data["2026-10-16"]["etfs"]) == 1
+        assert data["2026-10-16"]["etfs"][0]["open"] == 1.68
+
+        # 再次调用验证幂等性（条目数仍为 1）
+        server.record_daily_history(mock_payload)
+        with open(test_hist_file, "r", encoding="utf-8") as f:
+            data2 = json.load(f)
+        assert len(data2) == 1, "幂等性校验失败：重复写入了条目"
+        print("✅ 测试 7 通过: 每日收盘历史安全归档与幂等性验证通过")
+    finally:
+        server.HISTORY_FILE = orig_hist_file
+        if os.path.exists(test_hist_file):
+            os.remove(test_hist_file)
+
     print("=" * 60)
-    print("🎉 全部 6 项核心业务单元测试 100% 验证通过！")
+    print("🎉 全部 7 项核心业务单元测试 100% 验证通过！")
     print("=" * 60)
 
 if __name__ == "__main__":

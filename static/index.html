@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>A股ETF溢价追踪</title>
+  <title>CrossETF | 跨境ETF溢价追踪</title>
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="apple-touch-icon" href="/favicon.png">
@@ -47,13 +47,21 @@
     <header class="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 border-b border-slate-200 dark:border-slate-800/80 gap-3">
       <div class="flex items-center gap-3">
         <!-- 品牌专属金融科技质感图标 -->
-        <img src="/favicon.png" alt="ETF Live" class="w-8 h-8 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 select-none object-cover" />
+        <img src="/favicon.png" alt="CrossETF" class="w-8 h-8 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 select-none object-cover" />
         <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-          <span>A股ETF溢价追踪</span>
+          <span>CrossETF</span>
+          <span class="text-xs font-normal text-slate-500 dark:text-slate-400 hidden sm:inline">跨境ETF实时溢价</span>
           <!-- 版本编号徽章 -->
           <span class="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-bold tracking-wider shadow-xs" title="当前系统版本编号">
             {{ appVersion }}
           </span>
+          <!-- 历史归档沉淀胶囊 -->
+          <button @click="openHistoryModal"
+            class="text-[11px] px-2.5 py-0.5 rounded-md font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-950/70 dark:text-indigo-300 dark:border-indigo-800/80 flex items-center gap-1 transition-colors shadow-2xs cursor-pointer"
+            title="点击查看每日收盘历史档案与大盘情绪温度计">
+            <span>📦</span>
+            <span>已沉淀 {{ historyTotalDays }} 天</span>
+          </button>
           <!-- 标的池状态小胶囊 -->
           <span v-if="registryInfo.status === 'online_fresh'"
             class="text-[11px] px-2.5 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-600/50 flex items-center gap-1.5 shadow-sm">
@@ -580,9 +588,79 @@
       </div>
     </section>
 
+    <!-- 每日收盘历史归档速览抽屉/模态框 -->
+    <div v-if="showHistoryModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <!-- 模态框顶部 -->
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="text-xl">📦</span>
+            <div>
+              <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                每日收盘历史档案
+                <span class="text-xs px-2 py-0.5 rounded-full font-mono font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                  已累计 {{ historyTotalDays }} 天
+                </span>
+              </h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">工作日 15:02 后台守护进程自动沉淀，记录大盘情绪温度计与最优标的</p>
+            </div>
+          </div>
+          <button @click="showHistoryModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+            ✕
+          </button>
+        </div>
+
+        <!-- 模态框内容列表 -->
+        <div class="p-5 overflow-y-auto space-y-3.5 divide-y divide-slate-100 dark:divide-slate-800/60">
+          <div v-if="historyList.length === 0" class="text-center py-10 text-slate-400 text-xs">
+            暂无历史归档记录（将在下一个工作日 15:02 自动打卡）
+          </div>
+          <div v-for="item in historyList" :key="item.date" class="pt-3.5 first:pt-0">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="font-mono font-bold text-sm text-slate-900 dark:text-white">{{ item.date }}</span>
+                <span class="text-[11px] text-slate-400">({{ item.archive_time ? item.archive_time.split(' ')[1] : '已收盘' }})</span>
+              </div>
+              <div class="flex items-center gap-2 text-xs font-mono">
+                <span v-if="item.macro?.nasdaq_avg_premium !== undefined" class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  纳指均溢: <b class="text-emerald-600 dark:text-emerald-400">+{{ item.macro.nasdaq_avg_premium }}%</b>
+                </span>
+                <span v-if="item.macro?.sp500_avg_premium !== undefined" class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  标普均溢: <b class="text-emerald-600 dark:text-emerald-400">+{{ item.macro.sp500_avg_premium }}%</b>
+                </span>
+              </div>
+            </div>
+
+            <!-- 当日最优标的 -->
+            <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div v-if="item.macro?.nasdaq_best" class="p-2 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 flex items-center justify-between">
+                <span class="text-slate-600 dark:text-slate-300 truncate">纳指最优: <b>{{ item.macro.nasdaq_best.name }}</b> ({{ item.macro.nasdaq_best.code }})</span>
+                <span class="font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">+{{ item.macro.nasdaq_best.premium }}%</span>
+              </div>
+              <div v-if="item.macro?.sp500_best" class="p-2 rounded-lg bg-sky-50/60 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 flex items-center justify-between">
+                <span class="text-slate-600 dark:text-slate-300 truncate">标普最优: <b>{{ item.macro.sp500_best.name }}</b> ({{ item.macro.sp500_best.code }})</span>
+                <span class="font-mono font-bold text-sky-600 dark:text-sky-400 whitespace-nowrap">+{{ item.macro.sp500_best.premium }}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 模态框底部操作栏 -->
+        <div class="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between">
+          <a href="/api/history/download" download="crossetf_history_daily.json"
+            class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1.5 shadow-2xs">
+            <span>📥</span> 导出原始 JSON 数据
+          </a>
+          <button @click="showHistoryModal = false" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:opacity-90 transition-opacity cursor-pointer">
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 页脚 -->
     <footer class="mt-6 pt-3 pb-6 border-t border-slate-200 dark:border-slate-800/50 text-center text-[11px] text-slate-400 dark:text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-1">
-      <div>A股ETF溢价追踪 · 纳斯达克100 + 标普500</div>
+      <div>CrossETF · 跨境ETF实时溢价追踪 (纳指100 + 标普500)</div>
       <div>数据源：天天基金、CME Group、新浪财经、腾讯行情</div>
     </footer>
 
@@ -651,7 +729,31 @@
         });
 
         // 系统版本号
-        const appVersion = ref('v1.2.0');
+        const appVersion = ref('v1.3.0');
+
+        // 每日收盘历史归档相关状态
+        const showHistoryModal = ref(false);
+        const historyList = ref([]);
+        const historyTotalDays = ref(0);
+
+        const fetchHistoryData = async () => {
+          try {
+            const resp = await fetch('/api/history?t=' + Date.now());
+            if (!resp.ok) return;
+            const res = await resp.json();
+            if (res.code === 200) {
+              historyTotalDays.value = res.total_days || 0;
+              historyList.value = Object.values(res.data || {}).sort((a, b) => b.date.localeCompare(a.date));
+            }
+          } catch (e) {
+            console.error('Fetch history failed:', e);
+          }
+        };
+
+        const openHistoryModal = () => {
+          fetchHistoryData();
+          showHistoryModal.value = true;
+        };
 
         const registryInfo = ref({});
         const nasdaq100List = ref([]);
@@ -722,6 +824,7 @@
               if (res.version) appVersion.value = res.version;
               registryInfo.value = res.registry_info || {};
               lastUpdated.value = res.timestamp || new Date().toLocaleTimeString();
+              fetchHistoryData();
 
               // 自动初始化测算器默认标的（选有效项）
               const validList = validNasdaq100List.value;
@@ -1026,6 +1129,10 @@
           syncFeedback,
           closeSyncFeedback,
           appVersion,
+          showHistoryModal,
+          historyList,
+          historyTotalDays,
+          openHistoryModal,
           formatNumber,
           formatPercentSign,
           getPriceChangeClass,

@@ -1,8 +1,8 @@
 services:
-  etf-dashboard:
+  cross-etf:
     build: .
-    image: etf-dashboard:latest
-    container_name: etf-dashboard
+    image: cross-etf:latest
+    container_name: cross-etf
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -10,8 +10,9 @@ services:
       - PORT=8000
       - TZ=Asia/Shanghai
     volumes:
-      # [默认启用] 持久化标的池缓存文件，断网或重启均可平滑降级使用
+      # [默认启用] 持久化标的池缓存文件与每日收盘历史归档，容器重启或重建数据不丢失
       - ./nasdaq_symbols_cache.json:/app/nasdaq_symbols_cache.json
+      - ./history_daily.json:/app/history_daily.json
 
       # [按需开启] 热开发模式：取消以下两行注释，本地修改 HTML 或 Python 代码后直接生效（无需重新 build 镜像）
       - ./server.py:/app/server.py
