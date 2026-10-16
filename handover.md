@@ -98,6 +98,9 @@ docker compose logs -f
 
 # 查询历史归档 API
 curl -s http://127.0.0.1:8000/api/history | jq .
+
+# GitHub CLI (系统已支持 gh 命令行工具)
+gh repo view
 ```
 
 ---
@@ -105,10 +108,11 @@ curl -s http://127.0.0.1:8000/api/history | jq .
 ## 7. 当前状态与演进记录 (Status & Changelog)
 
 - **当前版本**：`v1.3.0`
-- **最新 Commit**：[`b5e5261`](https://github.com/ddmasato1/CrossETF/commit/b5e5261) (`refactor: isolate persistent storage to data directory with atomic volume mounting`)
+- **最新 Commit**：[`28dbb30`](https://github.com/ddmasato1/CrossETF/commit/28dbb30) (`fix: calibrate expense ratios and enforce single source of truth in data directory`)
 - **近期规划事项**：
   - [x] 券商官方 IOPV 口径对齐与全标的覆盖
   - [x] 每日收盘宏观与个券数据自动静默沉淀
   - [x] 后台自主采集守护线程与前端历史抽屉
   - [x] 独立 `data/` 目录隔离与 Docker 原子挂载改造
+  - [x] 综合运营费率校准（对齐 1.00% 梯队）与单一数据源彻底收敛
   - [ ] 后续：云主机生产部署上线，以及基于 `history_daily.json` 的极简历史均溢趋势线探索
