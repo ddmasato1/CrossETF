@@ -49,7 +49,11 @@
         <!-- 品牌专属金融科技质感图标 -->
         <img src="/favicon.png" alt="ETF Live" class="w-8 h-8 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 select-none object-cover" />
         <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-          A股ETF溢价追踪
+          <span>A股ETF溢价追踪</span>
+          <!-- 版本编号徽章 -->
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-bold tracking-wider shadow-xs" title="当前系统版本编号">
+            {{ appVersion }}
+          </span>
           <!-- 标的池状态小胶囊 -->
           <span v-if="registryInfo.status === 'online_fresh'"
             class="text-[11px] px-2.5 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-600/50 flex items-center gap-1.5 shadow-sm">
@@ -121,6 +125,38 @@
         </span>
       </div>
     </header>
+
+    <!-- 同步操作结果与详细日志反馈横幅 (成功/降级/失败均明确展示日志) -->
+    <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-150 ease-in" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
+      <div v-if="syncFeedback" class="mt-3 rounded-lg border p-3 text-xs shadow-sm flex items-start justify-between gap-3"
+        :class="{
+          'bg-emerald-50/90 border-emerald-200 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-200': syncFeedback.type === 'success',
+          'bg-amber-50/90 border-amber-200 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-200': syncFeedback.type === 'warning',
+          'bg-rose-50/90 border-rose-200 text-rose-900 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-200': syncFeedback.type === 'error',
+          'bg-cyan-50/90 border-cyan-200 text-cyan-900 dark:bg-cyan-950/40 dark:border-cyan-800/60 dark:text-cyan-200': syncFeedback.type === 'loading'
+        }">
+        <div class="flex items-start gap-2.5">
+          <span class="text-base leading-none">
+            <span v-if="syncFeedback.type === 'success'">🟢</span>
+            <span v-else-if="syncFeedback.type === 'warning'">🟡</span>
+            <span v-else-if="syncFeedback.type === 'error'">🔴</span>
+            <span v-else class="inline-block animate-spin">🔄</span>
+          </span>
+          <div>
+            <div class="flex items-center gap-2 font-bold text-sm">
+              <span>{{ syncFeedback.title }}</span>
+              <span class="text-[11px] font-normal opacity-75 font-tabular">[{{ syncFeedback.time }}]</span>
+            </div>
+            <div class="mt-1 font-mono text-[11px] break-all leading-relaxed opacity-90">
+              {{ syncFeedback.message }}
+            </div>
+          </div>
+        </div>
+        <button @click="closeSyncFeedback" class="p-1 hover:opacity-75 transition-opacity text-base leading-none focus:outline-none" title="关闭日志提示">
+          &times;
+        </button>
+      </div>
+    </transition>
 
     <!-- 宏观基准指示面板（紧凑型） -->
     <section class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-3.5">
@@ -249,7 +285,7 @@
                     <span v-if="sortKey === 'price'" class="text-emerald-600 dark:text-emerald-400">{{ sortAsc ? '↑' : '↓' }}</span>
                   </div>
                 </th>
-                <!-- 核心 4: 综合费率 -->
+                <!-- 5. 核心: 综合费率 -->
                 <th class="py-2.5 px-3 text-right cursor-pointer hover:text-slate-900 dark:hover:text-white" @click="sortBy('fee')">
                   <div class="flex items-center justify-end gap-1">
                     <span>费率</span>
@@ -257,13 +293,10 @@
                   </div>
                 </th>
                 <th class="py-2.5 px-3 text-right text-indigo-600 dark:text-indigo-300 font-semibold cursor-pointer hover:text-slate-900 dark:hover:text-white" @click="sortBy('est_realtime')">
-                  实时EST
+                  实时估值 (IOPV)
                 </th>
                 <th class="py-2.5 px-3 text-right hidden md:table-cell cursor-pointer hover:text-slate-900 dark:hover:text-white" @click="sortBy('nav_t1')">
-                  公布净值 (基准日待核验)
-                </th>
-                <th class="py-2.5 px-3 text-right hidden sm:table-cell cursor-pointer hover:text-slate-900 dark:hover:text-white" @click="sortBy('iopv_premium')">
-                  官方IOPV溢价
+                  公布净值
                 </th>
                 <th class="py-2.5 px-3 text-right hidden lg:table-cell cursor-pointer hover:text-slate-900 dark:hover:text-white" @click="sortBy('amount_wan')">
                   成交额
@@ -322,19 +355,14 @@
                   {{ item.fee }}
                 </td>
 
-                <!-- 实时EST -->
+                <!-- 实时估值 (IOPV) -->
                 <td class="py-2.5 px-3 text-right font-semibold text-indigo-600 dark:text-indigo-300 text-sm sm:text-base">
                   {{ formatNumber(item.est_realtime, 4) }}
                 </td>
 
-                <!-- 公布净值 (基准日待核验) -->
+                <!-- 公布净值 -->
                 <td class="py-2.5 px-3 text-right hidden md:table-cell text-slate-600 dark:text-slate-300">
                   {{ formatNumber(item.nav_t1, 4) }}
-                </td>
-
-                <!-- 官方IOPV溢价 -->
-                <td class="py-2.5 px-3 text-right hidden sm:table-cell text-slate-600 dark:text-slate-300 font-medium">
-                  {{ item.iopv_premium !== null && item.iopv_premium !== undefined ? ((item.iopv_premium > 0 ? '+' : '') + formatNumber(item.iopv_premium, 2) + '%') : '--' }}
                 </td>
 
                 <!-- 成交额 -->
@@ -368,12 +396,6 @@
         </div>
       </div>
 
-      <!-- 行业数据源未接入提示条 -->
-      <div class="p-2.5 bg-amber-50/80 border border-amber-200/80 dark:bg-amber-950/30 dark:border-amber-800/50 rounded-lg text-xs text-amber-800 dark:text-amber-300 mb-2 flex items-center gap-2">
-        <span>⚠️</span>
-        <span><strong>估值暂停提示</strong>：本系统尚未接入匹配的行业估值数据源，暂停细分行业标的的实时 EST 联动估算与评级，仅保留场内交易及官方发布数据。</span>
-      </div>
-
       <div class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs sm:text-sm">
@@ -381,13 +403,12 @@
               <tr>
                 <th class="py-2 px-3">标的代码 / 名称</th>
                 <th class="py-2 px-3">跟踪细分指数</th>
-                <th class="py-2 px-3 text-right text-slate-400 dark:text-slate-500 font-bold bg-slate-50 dark:bg-slate-800/40">实时溢价率</th>
+                <th class="py-2 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400 bg-slate-50 dark:bg-slate-800/40">实时溢价率</th>
                 <th class="py-2 px-3 text-right">涨跌幅</th>
                 <th class="py-2 px-3 text-right">现价</th>
                 <th class="py-2 px-3 text-right">费率</th>
-                <th class="py-2 px-3 text-right text-slate-400 dark:text-slate-500">实时EST</th>
-                <th class="py-2 px-3 text-right hidden md:table-cell">公布净值 (基准日待核验)</th>
-                <th class="py-2 px-3 text-right hidden sm:table-cell">官方IOPV溢价</th>
+                <th class="py-2 px-3 text-right text-indigo-600 dark:text-indigo-300 font-semibold">实时估值 (IOPV)</th>
+                <th class="py-2 px-3 text-right hidden md:table-cell">公布净值</th>
                 <th class="py-2 px-3 text-right hidden lg:table-cell">成交额</th>
                 <th class="py-2 px-3 text-center w-20">建议</th>
               </tr>
@@ -406,8 +427,12 @@
                 <td class="py-2.5 px-3 text-purple-600 dark:text-purple-400 font-semibold text-xs">
                   {{ item.index_name }}
                 </td>
-                <td class="py-2.5 px-3 text-right bg-slate-50/60 dark:bg-slate-800/30 text-slate-400 dark:text-slate-500 font-mono">
-                  --
+                <!-- 实时溢价率 (官方 IOPV 口径) -->
+                <td class="py-2.5 px-3 text-right bg-slate-50/60 dark:bg-slate-800/30">
+                  <span class="inline-block px-2.5 py-0.5 rounded-md font-bold text-xs sm:text-sm shadow-sm"
+                    :class="getPremiumBadgeClass(item.est_premium)">
+                    {{ item.est_premium !== null && item.est_premium !== undefined ? ((item.est_premium > 0 ? '+' : '') + formatNumber(item.est_premium, 2) + '%') : '--' }}
+                  </span>
                 </td>
                 <td class="py-2.5 px-3 text-right font-bold text-xs" :class="getPriceChangeClass(item.change_pct)">
                   {{ formatPercentSign(item.change_pct) }}
@@ -418,20 +443,25 @@
                 <td class="py-2.5 px-3 text-right font-medium text-slate-600 dark:text-slate-300 font-tabular text-xs">
                   {{ item.fee }}
                 </td>
-                <td class="py-2.5 px-3 text-right text-slate-400 dark:text-slate-500 font-mono text-sm">
-                  --
+                <!-- 实时估值 (IOPV) -->
+                <td class="py-2.5 px-3 text-right font-semibold text-indigo-600 dark:text-indigo-300 text-sm sm:text-base">
+                  {{ formatNumber(item.est_realtime, 4) }}
                 </td>
+                <!-- 公布净值 -->
                 <td class="py-2.5 px-3 text-right hidden md:table-cell text-slate-600 dark:text-slate-300">
                   {{ formatNumber(item.nav_t1, 4) }}
                 </td>
-                <td class="py-2.5 px-3 text-right hidden sm:table-cell text-slate-600 dark:text-slate-300 font-medium">
-                  {{ item.iopv_premium !== null && item.iopv_premium !== undefined ? ((item.iopv_premium > 0 ? '+' : '') + formatNumber(item.iopv_premium, 2) + '%') : '--' }}
-                </td>
+                <!-- 成交额 -->
                 <td class="py-2.5 px-3 text-right hidden lg:table-cell text-slate-600 dark:text-slate-300 font-medium">
                   {{ item.amount_str }}
                 </td>
-                <td class="py-2.5 px-3 text-center text-slate-400 dark:text-slate-500 text-xs font-mono">
-                  --
+                <!-- 建议 -->
+                <td class="py-2.5 px-3 text-center">
+                  <span v-if="item.premium_advice && item.premium_advice !== '--'" class="inline-block px-2 py-0.5 rounded text-[11px] font-bold"
+                    :class="getAdviceBadgeClass(item.premium_level)">
+                    {{ item.premium_advice }}
+                  </span>
+                  <span v-else class="text-slate-400 dark:text-slate-500 text-xs font-mono">--</span>
                 </td>
               </tr>
             </tbody>
@@ -483,7 +513,7 @@
             <div>
               <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">溢价率差: </span>
               <span class="text-lg font-black" :class="arbSpread !== null && arbSpread >= 3 ? 'text-emerald-600 dark:text-emerald-400' : (arbSpread !== null && arbSpread >= 1 ? 'text-amber-600 dark:text-amber-300' : 'text-slate-500')">
-                {{ arbSpread !== null ? ((arbSpread > 0 ? '+' : '') + arbSpread.toFixed(2) + ' 个百分点') : '--' }}
+                {{ arbSpread !== null ? ((arbSpread > 0 ? '+' : '') + arbSpread.toFixed(2) + '%') : '--' }}
               </span>
             </div>
             <div class="border-l border-slate-200 dark:border-slate-800 pl-5">
@@ -620,6 +650,9 @@
           max_premium_etf: null
         });
 
+        // 系统版本号
+        const appVersion = ref('v1.2.0');
+
         const registryInfo = ref({});
         const nasdaq100List = ref([]);
         const sectorList = ref([]);
@@ -686,6 +719,7 @@
               nasdaq100List.value = res.nasdaq100_etfs || [];
               sectorList.value = res.sector_etfs || res.nasdaq_tech_etfs || [];
               sp500List.value = res.sp500_etfs || [];
+              if (res.version) appVersion.value = res.version;
               registryInfo.value = res.registry_info || {};
               lastUpdated.value = res.timestamp || new Date().toLocaleTimeString();
 
@@ -712,18 +746,68 @@
           }
         };
 
+        // 同步日志与操作反馈状态
+        const syncFeedback = ref(null);
+        let syncFeedbackTimer = null;
+
+        const closeSyncFeedback = () => {
+          syncFeedback.value = null;
+          if (syncFeedbackTimer) {
+            clearTimeout(syncFeedbackTimer);
+            syncFeedbackTimer = null;
+          }
+        };
+
         const syncSymbols = async () => {
           syncing.value = true;
+          if (syncFeedbackTimer) clearTimeout(syncFeedbackTimer);
+          syncFeedback.value = {
+            type: 'loading',
+            title: '标的库在线同步中',
+            message: '正在向天天基金全网公募代码库检索最新纳指与标普 ETF 标的，请稍候...',
+            time: new Date().toLocaleTimeString()
+          };
+
           try {
             const resp = await fetch('/api/refresh-symbols?t=' + Date.now());
+            if (!resp.ok) {
+              throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+            }
             const res = await resp.json();
             if (res.code === 200) {
+              const isFallback = res.status === 'cached_fallback';
+              const logMsg = res.log || res.message || `标的同步完成: 宽基 ${res.broad_count} 只, 细分 ${res.sector_count} 只, 标普500 ${res.sp500_count} 只`;
+              syncFeedback.value = {
+                type: isFallback ? 'warning' : 'success',
+                title: isFallback ? '在线超时，已自动降级前日缓存' : '标的在线同步成功',
+                message: logMsg,
+                time: res.updated_at || new Date().toLocaleTimeString()
+              };
               await fetchData(false);
+            } else {
+              syncFeedback.value = {
+                type: 'error',
+                title: '同步接口返回异常',
+                message: res.message || '未知服务错误',
+                time: new Date().toLocaleTimeString()
+              };
             }
           } catch (e) {
             console.error('Sync symbols failed:', e);
+            syncFeedback.value = {
+              type: 'error',
+              title: '标的同步请求失败',
+              message: `无法连接服务端同步接口或网络中断: ${e.message}`,
+              time: new Date().toLocaleTimeString()
+            };
           } finally {
-            setTimeout(() => { syncing.value = false; }, 500);
+            syncing.value = false;
+            // 成功时 8 秒后自动关闭，若为警告或错误则常驻供用户查看
+            if (syncFeedback.value && syncFeedback.value.type === 'success') {
+              syncFeedbackTimer = setTimeout(() => {
+                syncFeedback.value = null;
+              }, 8000);
+            }
           }
         };
 
@@ -939,6 +1023,9 @@
           arbAdviceColor,
           fetchData,
           syncSymbols,
+          syncFeedback,
+          closeSyncFeedback,
+          appVersion,
           formatNumber,
           formatPercentSign,
           getPriceChangeClass,

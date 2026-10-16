@@ -18,6 +18,7 @@ import sys
 import re
 
 # 基础配置
+APP_VERSION = "v1.2.0"
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
 
@@ -192,6 +193,7 @@ def discover_etfs_online(force=False):
 
     # 路径 1: 在线拉取成功 -> 更新内存并持久化写入本地缓存
     if broad_list or sp500_list:
+        log_msg = f"[Sync] 标的在线拉取成功并已持久化缓存: 宽基 {len(broad_list)} 只, 细分 {len(sector_list)} 只, 标普500 {len(sp500_list)} 只"
         symbols_registry["status"] = "online_fresh"
         symbols_registry["status_desc"] = f"🟢 当日在线最新 ({now_str})"
         symbols_registry["cached_date"] = today_str
@@ -199,6 +201,7 @@ def discover_etfs_online(force=False):
         symbols_registry["broad_etfs"] = broad_list
         symbols_registry["sector_etfs"] = sector_list
         symbols_registry["sp500_etfs"] = sp500_list
+        symbols_registry["last_log"] = log_msg
 
         try:
             cache_payload = {
@@ -214,7 +217,7 @@ def discover_etfs_online(force=False):
             }
             with open(SYMBOLS_CACHE_FILE, "w", encoding="utf-8") as f:
                 json.dump(cache_payload, f, ensure_ascii=False, indent=2)
-            print(f"[Sync] 标的在线拉取成功并已持久化缓存: 宽基 {len(broad_list)} 只, 细分 {len(sector_list)} 只, 标普500 {len(sp500_list)} 只")
+            print(log_msg)
         except Exception as e:
             print(f"[Warning] 写入本地缓存失败: {e}", file=sys.stderr)
 
@@ -232,7 +235,9 @@ def discover_etfs_online(force=False):
                 symbols_registry["broad_etfs"] = saved.get("broad_etfs") or DEFAULT_BROAD_ETFS
                 symbols_registry["sector_etfs"] = saved.get("sector_etfs") or DEFAULT_SECTOR_ETFS
                 symbols_registry["sp500_etfs"] = saved.get("sp500_etfs") or DEFAULT_SP500_ETFS
-                print(f"[Fallback] ⚠️ 在线拉取失败，已自动降级使用前日持久化缓存 (日期: {symbols_registry['cached_date']})")
+                log_msg = f"[Fallback] ⚠️ 在线拉取失败/未响应，已自动降级使用前日持久化缓存 (缓存日期: {symbols_registry['cached_date']})"
+                symbols_registry["last_log"] = log_msg
+                print(log_msg)
                 return symbols_registry
         except Exception as e:
             print(f"[Warning] 读取前日缓存失败: {e}", file=sys.stderr)
@@ -245,7 +250,9 @@ def discover_etfs_online(force=False):
     symbols_registry["broad_etfs"] = DEFAULT_BROAD_ETFS
     symbols_registry["sector_etfs"] = DEFAULT_SECTOR_ETFS
     symbols_registry["sp500_etfs"] = DEFAULT_SP500_ETFS
-    print("[Fallback] 首次启动无网络且无前日缓存，使用出厂预置标的池")
+    log_msg = "[Fallback] 首次启动无网络且无前日缓存，使用出厂预置标的池"
+    symbols_registry["last_log"] = log_msg
+    print(log_msg)
     return symbols_registry
 
 
@@ -465,51 +472,71 @@ def get_market_data():
             except Exception as e:
                 print(f"[Error] Parsing quote fields for {code}: {e}", file=sys.stderr)
 
-        # 估值状态与计算分流
-        est_realtime = None
-        est_premium = None
-        premium_level = "none"
-        premium_advice = "--"
-
-        # 1. 行业 ETF：保守处理，本系统尚未接入匹配的行业估值数据源，不输出模型估值与评级
-        if is_sector:
-            val_status = "unsupported_index"
-            status_desc = "本系统尚未接入匹配的行业估值数据源"
-        # 2. 现价缺失
-        elif price is None or price <= 0:
+        # 估值状态与计算分流（券商官方 IOPV 口径）
+        # 1. 现价缺失
+        if price is None or price <= 0:
             val_status = "missing_quote"
             status_desc = "无有效场内现价"
-        # 3. 净值缺失（取消 IOPV 回退机制，避免口径混淆）
-        elif nav_t1 is None or nav_t1 <= 0:
-            val_status = "missing_nav"
-            status_desc = "官方披露净值缺失"
-        # 4. 宏观联动乘数缺失（期货基准或汇率缺失）
-        elif sf is None or not math.isfinite(sf) or sf <= 0:
-            val_status = "missing_macro"
-            status_desc = "外盘期指或汇率基准数据缺失"
-        # 5. 条件满足：数据足以计算参考估值，但基准发布日期尚未核验
+            est_realtime = iopv if (iopv and iopv > 0) else nav_t1
+            est_premium = None
+            premium_level = "none"
+            premium_advice = "--"
+        # 2. 官方 IOPV 有效（优先对齐券商交易盘中口径）
+        elif iopv is not None and iopv > 0:
+            val_status = "official_iopv"
+            status_desc = "交易所官方IOPV估值"
+            est_realtime = iopv
+            # 若接口已自带 iopv_premium 则直接采用，否则由现价与 iopv 计算
+            if iopv_premium is not None and math.isfinite(iopv_premium):
+                est_premium = iopv_premium
+            else:
+                est_premium = round(((price - iopv) / iopv) * 100.0, 2)
+
+            # 评级建议（按官方 IOPV 溢价率评定，涵盖行业标的）
+            if est_premium < 3.0:
+                premium_level = "safe"
+                premium_advice = "极低"
+            elif est_premium < 6.0:
+                premium_level = "low"
+                premium_advice = "温和"
+            elif est_premium < 10.0:
+                premium_level = "warning"
+                premium_advice = "偏高"
+            elif est_premium < 15.0:
+                premium_level = "danger"
+                premium_advice = "高危"
+            else:
+                premium_level = "bubble"
+                premium_advice = "泡沫"
+        # 3. IOPV 缺失但官方公布净值有效（非交易时段或未计算 IOPV 时的回退）
+        elif nav_t1 is not None and nav_t1 > 0:
+            val_status = "nav_fallback"
+            status_desc = "基准公布净值估算(IOPV未发布)"
+            est_realtime = nav_t1
+            est_premium = round(((price - nav_t1) / nav_t1) * 100.0, 2)
+            if est_premium < 3.0:
+                premium_level = "safe"
+                premium_advice = "极低"
+            elif est_premium < 6.0:
+                premium_level = "low"
+                premium_advice = "温和"
+            elif est_premium < 10.0:
+                premium_level = "warning"
+                premium_advice = "偏高"
+            elif est_premium < 15.0:
+                premium_level = "danger"
+                premium_advice = "高危"
+            else:
+                premium_level = "bubble"
+                premium_advice = "泡沫"
+        # 4. 数据缺失
         else:
-            val_status = "nav_unverified"
-            status_desc = "参考估值(基准发布日期待核验)"
-            est_realtime = round(nav_t1 * sf, 4)
-            if est_realtime > 0:
-                est_premium = round(((price - est_realtime) / est_realtime) * 100.0, 2)
-                # 评级建议
-                if est_premium < 3.0:
-                    premium_level = "safe"
-                    premium_advice = "极低"
-                elif est_premium < 6.0:
-                    premium_level = "low"
-                    premium_advice = "温和"
-                elif est_premium < 10.0:
-                    premium_level = "warning"
-                    premium_advice = "偏高"
-                elif est_premium < 15.0:
-                    premium_level = "danger"
-                    premium_advice = "高危"
-                else:
-                    premium_level = "bubble"
-                    premium_advice = "泡沫"
+            val_status = "missing_nav"
+            status_desc = "官方IOPV与净值数据缺失"
+            est_realtime = None
+            est_premium = None
+            premium_level = "none"
+            premium_advice = "--"
 
         result = {
             "code": code,
@@ -566,18 +593,22 @@ def get_market_data():
         [parse_etf(item, sf=sp500_scale_factor) for item in active_sp500_etfs]
     )
 
-    # 解析细分行业标的（行业 ETF 统一不计算 EST 估值模型，只展示行情）
-    sector_list = [parse_etf(item, is_sector=True, sf=None) for item in active_sector_etfs]
+    # 解析细分行业标的（采用官方 IOPV 估值与溢价口径）
+    sector_list, sector_avg_premium, _, _ = sort_etfs_and_calc_stats(
+        [parse_etf(item, is_sector=True, sf=None) for item in active_sector_etfs]
+    )
 
     payload = {
         "code": 200,
         "message": "success",
+        "version": APP_VERSION,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now)),
         "registry_info": {
             "status": registry["status"],
             "status_desc": registry["status_desc"],
             "cached_date": registry["cached_date"],
             "updated_at": registry["updated_at"],
+            "last_log": registry.get("last_log", ""),
             "broad_count": len(nasdaq100_list),
             "sector_count": len(sector_list),
             "sp500_count": len(sp500_list),
@@ -642,7 +673,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             reg = discover_etfs_online(force=True)
             res = {
                 "code": 200,
-                "message": "标的池刷新完成",
+                "version": APP_VERSION,
+                "message": reg.get("last_log", "标的池刷新完成"),
+                "log": reg.get("last_log", "标的池刷新完成"),
                 "status": reg["status"],
                 "status_desc": reg["status_desc"],
                 "cached_date": reg["cached_date"],
@@ -750,7 +783,7 @@ def run_server():
     server_address = ("0.0.0.0", PORT)
     httpd = ThreadedHTTPServer(server_address, DashboardHandler)
     print("=" * 60)
-    print("🚀 A股纳指ETF追踪看板服务已启动！")
+    print(f"🚀 A股纳指与标普500 ETF追踪看板服务已启动！[{APP_VERSION}]")
     print(f"👉 本地访问地址: http://127.0.0.1:{PORT}")
     print(f"👉 实时行情 API: http://127.0.0.1:{PORT}/api/quotes")
     print(f"👉 标的同步 API: http://127.0.0.1:{PORT}/api/refresh-symbols")
