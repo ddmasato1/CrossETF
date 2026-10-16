@@ -1,0 +1,176 @@
+{
+  "status": "cached_fallback",
+  "cached_date": "2026-10-16",
+  "updated_at": "2026-10-16 15:36:07",
+  "broad_count": 12,
+  "sector_count": 2,
+  "sp500_count": 4,
+  "broad_etfs": [
+    {
+      "code": "159501",
+      "name": "纳指ETF嘉实",
+      "symbol": "sz159501",
+      "fee": "0.60%",
+      "index_name": "纳斯达克100指数(^NDX)",
+      "is_sector": false,
+      "note": "纳指100核心综合宽基"
+    },
+    {
+      "code": "159513",
+      "name": "纳斯达克100ETF大成",
+      "symbol": "sz159513",
+      "fee": "0.65%",
+      "index_name": "纳斯达克100指数(^NDX)",
+      "is_sector": false,
+      "note": "纳指100核心综合宽基"
+    },
+    {
+      "code": "159632",
+      "name": "纳斯达克ETF华安",
+      "symbol": "sz159632",
+      "fee": "0.65%",
+      "index_name": "纳斯达克100指数(^NDX)",
+      "is_sector": false,
+      "note": "纳指100核心综合宽基"
+    },
+    {
+      "code": "159659",
+      "name": "纳斯达克100ETF招商",
+      "symbol": "sz159659",
+      "fee": "0.65%",
+      "index_name": "纳斯达克100指数(^NDX)",
+      "is_sector": false,
+      "note": "纳指100核心综合宽基"
+    },
+    {
+      "code": "159660",
+      "name": "纳指ETF汇添富",
+      "symbol": "sz159660",
+      "fee": "0.65%",
+      "index_name": "纳斯达克100指数(^NDX)",
+      "is_sector": false,
+      "note": "纳指100核心综合宽基"
+    },
+    {
+      "code": "159696",
+      "name": "纳指ETF易方达",
+      "symbol": "sz159696",
+      "fee": "0.65%",
+      "index_name": "纳斯达克100指数(^NDX)",
+      "is_sector": false,
+      "note": "纳指100核心综合宽基"
+    },
+    {
+      "code": "159941",
+      "name": "纳指ETF广发",
+      "symbol": "sz159941",
+      "fee": "0.80%",
+      "index_name": "纳斯达克100指数(^NDX)",
+      "is_sector": false,
+      "note": "纳指100核心综合宽基"
+    },
+    {
+      "code": "513100",
+      "name": "纳指ETF国泰",
+      "symbol": "sh513100",
+      "fee": "0.80%",
+      "index_name": "纳斯达克100指数(^NDX)",
+      "is_sector": false,
+      "note": "纳指100核心综合宽基"
+    },
+    {
+      "code": "513110",
+      "name": "纳指ETF华泰柏瑞",
+      "symbol": "sh513110",
+      "fee": "0.65%",
+      "index_name": "纳斯达克100指数(^NDX)",
+      "is_sector": false,
+      "note": "纳指100核心综合宽基"
+    },
+    {
+      "code": "513300",
+      "name": "纳斯达克ETF华夏",
+      "symbol": "sh513300",
+      "fee": "0.65%",
+      "index_name": "纳斯达克100指数(^NDX)",
+      "is_sector": false,
+      "note": "纳指100核心综合宽基"
+    },
+    {
+      "code": "513390",
+      "name": "纳指100ETF博时",
+      "symbol": "sh513390",
+      "fee": "0.65%",
+      "index_name": "纳斯达克100指数(^NDX)",
+      "is_sector": false,
+      "note": "纳指100核心综合宽基"
+    },
+    {
+      "code": "513870",
+      "name": "纳指ETF富国",
+      "symbol": "sh513870",
+      "fee": "0.65%",
+      "index_name": "纳斯达克100指数(^NDX)",
+      "is_sector": false,
+      "note": "纳指100核心综合宽基"
+    }
+  ],
+  "sector_etfs": [
+    {
+      "code": "159509",
+      "name": "纳指科技ETF景顺",
+      "symbol": "sz159509",
+      "fee": "0.80%",
+      "index_name": "纳斯达克科技市值加权指数(NDXT)",
+      "is_sector": true,
+      "note": "跟踪科技细分指数，非纳指100宽基"
+    },
+    {
+      "code": "513290",
+      "name": "纳指生物科技ETF汇添富",
+      "symbol": "sh513290",
+      "fee": "0.80%",
+      "index_name": "纳斯达克生物科技指数(NBI)",
+      "is_sector": true,
+      "note": "跟踪生物科技细分指数，非纳指100宽基"
+    }
+  ],
+  "sp500_etfs": [
+    {
+      "code": "159612",
+      "name": "标普500ETF国泰",
+      "symbol": "sz159612",
+      "fee": "0.60%",
+      "index_name": "标普500指数(^SPX)",
+      "is_sector": false,
+      "note": "标普500核心宽基"
+    },
+    {
+      "code": "159655",
+      "name": "标普500ETF华夏",
+      "symbol": "sz159655",
+      "fee": "0.60%",
+      "index_name": "标普500指数(^SPX)",
+      "is_sector": false,
+      "note": "标普500核心宽基"
+    },
+    {
+      "code": "513500",
+      "name": "标普500ETF博时",
+      "symbol": "sh513500",
+      "fee": "0.60%",
+      "index_name": "标普500指数(^SPX)",
+      "is_sector": false,
+      "note": "标普500核心宽基"
+    },
+    {
+      "code": "513650",
+      "name": "标普500ETF南方",
+      "symbol": "sh513650",
+      "fee": "0.60%",
+      "index_name": "标普500指数(^SPX)",
+      "is_sector": false,
+      "note": "标普500核心宽基"
+    }
+  ]
+}

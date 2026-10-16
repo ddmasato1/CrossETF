@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- 主背景深邃渐变 -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16" />
+      <stop offset="50%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#022c22" />
+    </linearGradient>
+
+    <!-- 边框发光渐变 -->
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.8" />
+      <stop offset="50%" stop-color="#06b6d4" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.8" />
+    </linearGradient>
+
+    <!-- 柱状量化渐变 -->
+    <linearGradient id="barGrad1" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.35" />
+    </linearGradient>
+    <linearGradient id="barGrad2" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.45" />
+    </linearGradient>
+    <linearGradient id="barGrad3" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.6" />
+    </linearGradient>
+
+    <!-- 主趋势线发光渐变 -->
+    <linearGradient id="trendGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="40%" stop-color="#10b981" />
+      <stop offset="85%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#a7f3d0" />
+    </linearGradient>
+
+    <!-- 面积阴影渐变 -->
+    <linearGradient id="areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.3" />
+      <stop offset="60%" stop-color="#06b6d4" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- 脉冲高光滤镜 -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="coreGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- 1. 背景圆角矩形 -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="6" />
+
+  <!-- 2. 背景微网格网点装饰 (量化感) -->
+  <g opacity="0.12" stroke="#94a3b8" stroke-dasharray="2,14" stroke-width="2">
+    <line x1="80" y1="120" x2="432" y2="120" />
+    <line x1="80" y1="200" x2="432" y2="200" />
+    <line x1="80" y1="280" x2="432" y2="280" />
+    <line x1="80" y1="360" x2="432" y2="360" />
+  </g>
+
+  <!-- 3. 底层多维柱状量化图 (代表 ETF 资产底层) -->
+  <rect x="92"  y="300" width="44" height="110" rx="8" fill="url(#barGrad1)" />
+  <rect x="164" y="240" width="44" height="170" rx="8" fill="url(#barGrad2)" />
+  <rect x="236" y="270" width="44" height="140" rx="8" fill="url(#barGrad1)" />
+  <rect x="308" y="190" width="44" height="220" rx="8" fill="url(#barGrad2)" />
+  <rect x="380" y="130" width="44" height="280" rx="8" fill="url(#barGrad3)" />
+
+  <!-- 4. 趋势波段面积阴影 -->
+  <path d="M 80 370 
+           C 140 360, 160 270, 220 280 
+           C 270 290, 310 180, 360 190 
+           C 390 196, 410 140, 440 120 
+           L 440 410 L 80 410 Z" 
+        fill="url(#areaGrad)" />
+
+  <!-- 5. 核心脉冲走势折线 (发光主光轨) -->
+  <path d="M 76 370 
+           C 140 360, 160 270, 220 280 
+           C 270 290, 310 180, 360 190 
+           C 390 196, 410 140, 436 120" 
+        fill="none" 
+        stroke="url(#trendGrad)" 
+        stroke-width="16" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        filter="url(#glow)" />
+
+  <!-- 6. 核心突破焦点粒子（右上角发光脉冲球，代表实时溢价捕捉） -->
+  <g transform="translate(436, 120)">
+    <!-- 外层光晕环 -->
+    <circle r="32" fill="#10b981" opacity="0.25" filter="url(#glow)">
+      <animate attributeName="r" values="24;36;24" dur="3s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.3;0.1;0.3" dur="3s" repeatCount="indefinite" />
+    </circle>
+    <!-- 中层亮环 -->
+    <circle r="18" fill="#34d399" opacity="0.6" filter="url(#coreGlow)" />
+    <!-- 核心白光核 -->
+    <circle r="10" fill="#ffffff" />
+  </g>
+
+  <!-- 7. 辅助微型折线与上升箭头徽标 -->
+  <path d="M 406 100 L 446 100 L 446 140" fill="none" stroke="#a7f3d0" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />
+
+  <!-- 8. 品牌字母交织暗记 (左上角精雕 N 纳指 + 标普双轮标识) -->
+  <text x="76" y="146" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif" font-size="76" font-weight="900" fill="#ffffff" opacity="0.85" letter-spacing="-2">ETF</text>
+  <text x="214" y="146" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif" font-size="28" font-weight="800" fill="#10b981" opacity="0.9" letter-spacing="1">LIVE</text>
+</svg>
