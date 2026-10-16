@@ -25,8 +25,25 @@ CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接
 
 # 缓存与数据文件路径
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-SYMBOLS_CACHE_FILE = os.path.join(CURRENT_DIR, "nasdaq_symbols_cache.json")
-HISTORY_FILE = os.path.join(CURRENT_DIR, "history_daily.json")
+DATA_DIR = os.path.abspath(os.environ.get("DATA_DIR", os.path.join(CURRENT_DIR, "data")))
+SYMBOLS_CACHE_FILE = os.path.join(DATA_DIR, "nasdaq_symbols_cache.json")
+HISTORY_FILE = os.path.join(DATA_DIR, "history_daily.json")
+
+
+def ensure_data_storage():
+    """确保数据目录存在，并在首次启动时自动从根目录种子文件平滑同步初始数据"""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    for filename in ["nasdaq_symbols_cache.json", "history_daily.json"]:
+        dest_path = os.path.join(DATA_DIR, filename)
+        seed_path = os.path.join(CURRENT_DIR, filename)
+        if not os.path.exists(dest_path) and os.path.isfile(seed_path):
+            try:
+                with open(seed_path, "rb") as sf, open(dest_path, "wb") as df:
+                    df.write(sf.read())
+                print(f"📦 [初始化] 已从种子文件平滑同步 {filename} 至 {DATA_DIR}")
+            except Exception as e:
+                print(f"[Warning] Failed to seed {filename}: {e}", file=sys.stderr)
+
 
 # 出厂内置保底名单（仅在首次启动无网络且本地没有任何历史缓存文件时极罕见触发）
 DEFAULT_BROAD_ETFS = [
@@ -1037,6 +1054,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
 
 def run_server():
+    ensure_data_storage()
     print("🔍 正在在线检测并同步 ETF 标的池...")
     discover_etfs_online()
     start_daily_collector_daemon()

@@ -8,11 +8,11 @@ services:
       - "8000:8000"
     environment:
       - PORT=8000
+      - DATA_DIR=/app/data
       - TZ=Asia/Shanghai
     volumes:
-      # [默认启用] 持久化标的池缓存文件与每日收盘历史归档，容器重启或重建数据不丢失
-      - ./nasdaq_symbols_cache.json:/app/nasdaq_symbols_cache.json
-      - ./history_daily.json:/app/history_daily.json
+      # [默认启用] 持久化挂载全部运行数据（标的缓存与历史收盘归档），完美支持原子写入
+      - ./data:/app/data
 
       # [按需开启] 热开发模式：取消以下两行注释，本地修改 HTML 或 Python 代码后直接生效（无需重新 build 镜像）
       - ./server.py:/app/server.py

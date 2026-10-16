@@ -12,9 +12,11 @@ RUN apk add --no-cache tzdata && \
 COPY server.py ./
 COPY static/ ./static/
 COPY nasdaq_symbols_cache.json ./
+COPY history_daily.json ./
 
 # 暴露端口（默认 8000）
 ENV PORT=8000
+ENV DATA_DIR=/app/data
 EXPOSE 8000
 
 # 容器健康检查

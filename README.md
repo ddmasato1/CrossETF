@@ -93,12 +93,11 @@ docker compose down
 # 构建轻量镜像（仅约 50MB，无第三方 pip 依赖）
 docker build -t cross-etf:latest .
 
-# 启动容器并挂载缓存与历史数据
+# 启动容器并挂载独立数据目录（支持安全原子替换）
 docker run -d \
   --name cross-etf \
   -p 8000:8000 \
-  -v $(pwd)/nasdaq_symbols_cache.json:/app/nasdaq_symbols_cache.json \
-  -v $(pwd)/history_daily.json:/app/history_daily.json \
+  -v $(pwd)/data:/app/data \
   --restart unless-stopped \
   cross-etf:latest
 ```
