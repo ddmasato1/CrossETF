@@ -174,10 +174,10 @@
         </div>
         <div class="mt-1 flex items-baseline justify-between">
           <span class="text-base sm:text-lg font-black font-tabular" :class="getPremiumTextColor(activeAvgPremium)">
-            {{ formatNumber(activeAvgPremium, 2) }}%
+            {{ activeAvgPremium !== null && activeAvgPremium !== undefined ? ((activeAvgPremium > 0 ? '+' : '') + formatNumber(activeAvgPremium, 2) + '%') : '--' }}
           </span>
           <span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium font-tabular">
-            ×{{ activeScaleFactor }}
+            {{ activeScaleFactor ? '×' + activeScaleFactor : '--' }}
           </span>
         </div>
       </div>
@@ -260,7 +260,7 @@
                   实时EST
                 </th>
                 <th class="py-2.5 px-3 text-right hidden md:table-cell cursor-pointer hover:text-slate-900 dark:hover:text-white" @click="sortBy('nav_t1')">
-                  T-1净值
+                  公布净值 (基准日待核验)
                 </th>
                 <th class="py-2.5 px-3 text-right hidden sm:table-cell cursor-pointer hover:text-slate-900 dark:hover:text-white" @click="sortBy('iopv_premium')">
                   官方IOPV溢价
@@ -296,10 +296,10 @@
                   <div class="relative inline-block text-right">
                     <span class="inline-block px-2.5 py-0.5 rounded-md font-bold text-xs sm:text-sm shadow-sm"
                       :class="getPremiumBadgeClass(item.est_premium)">
-                      {{ item.est_premium > 0 ? '+' : '' }}{{ formatNumber(item.est_premium, 2) }}%
+                      {{ item.est_premium !== null && item.est_premium !== undefined ? ((item.est_premium > 0 ? '+' : '') + formatNumber(item.est_premium, 2) + '%') : '--' }}
                     </span>
-                    <!-- 悬浮小气泡：右上角角标 -->
-                    <span v-if="item.code === minPremiumCode"
+                    <!-- 悬浮小气泡：右上角角标（仅限有效标的） -->
+                    <span v-if="item.code === minPremiumCode && item.est_premium !== null"
                       class="absolute -top-2.5 -right-2 bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-md ring-1 ring-white dark:ring-slate-900 whitespace-nowrap leading-none z-10 pointer-events-none"
                       title="当前分类中实时溢价率全场最低">
                       最低溢价率
@@ -327,14 +327,14 @@
                   {{ formatNumber(item.est_realtime, 4) }}
                 </td>
 
-                <!-- T-1净值 -->
+                <!-- 公布净值 (基准日待核验) -->
                 <td class="py-2.5 px-3 text-right hidden md:table-cell text-slate-600 dark:text-slate-300">
                   {{ formatNumber(item.nav_t1, 4) }}
                 </td>
 
                 <!-- 官方IOPV溢价 -->
                 <td class="py-2.5 px-3 text-right hidden sm:table-cell text-slate-600 dark:text-slate-300 font-medium">
-                  {{ item.iopv_premium > 0 ? '+' : '' }}{{ formatNumber(item.iopv_premium, 2) }}%
+                  {{ item.iopv_premium !== null && item.iopv_premium !== undefined ? ((item.iopv_premium > 0 ? '+' : '') + formatNumber(item.iopv_premium, 2) + '%') : '--' }}
                 </td>
 
                 <!-- 成交额 -->
@@ -344,10 +344,11 @@
 
                 <!-- 建议标签 -->
                 <td class="py-2.5 px-3 text-center">
-                  <span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold"
+                  <span v-if="item.premium_advice && item.premium_advice !== '--'" class="inline-block px-2 py-0.5 rounded text-[11px] font-bold"
                     :class="getAdviceBadgeClass(item.premium_level)">
                     {{ item.premium_advice }}
                   </span>
+                  <span v-else class="text-slate-400 dark:text-slate-500 text-xs font-mono">--</span>
                 </td>
 
               </tr>
@@ -367,6 +368,12 @@
         </div>
       </div>
 
+      <!-- 行业数据源未接入提示条 -->
+      <div class="p-2.5 bg-amber-50/80 border border-amber-200/80 dark:bg-amber-950/30 dark:border-amber-800/50 rounded-lg text-xs text-amber-800 dark:text-amber-300 mb-2 flex items-center gap-2">
+        <span>⚠️</span>
+        <span><strong>估值暂停提示</strong>：本系统尚未接入匹配的行业估值数据源，暂停细分行业标的的实时 EST 联动估算与评级，仅保留场内交易及官方发布数据。</span>
+      </div>
+
       <div class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs sm:text-sm">
@@ -374,12 +381,12 @@
               <tr>
                 <th class="py-2 px-3">标的代码 / 名称</th>
                 <th class="py-2 px-3">跟踪细分指数</th>
-                <th class="py-2 px-3 text-right text-emerald-600 dark:text-emerald-400 font-bold bg-slate-50 dark:bg-slate-800/40">实时溢价率</th>
+                <th class="py-2 px-3 text-right text-slate-400 dark:text-slate-500 font-bold bg-slate-50 dark:bg-slate-800/40">实时溢价率</th>
                 <th class="py-2 px-3 text-right">涨跌幅</th>
                 <th class="py-2 px-3 text-right">现价</th>
                 <th class="py-2 px-3 text-right">费率</th>
-                <th class="py-2 px-3 text-right text-indigo-600 dark:text-indigo-300">实时EST</th>
-                <th class="py-2 px-3 text-right hidden md:table-cell">T-1净值</th>
+                <th class="py-2 px-3 text-right text-slate-400 dark:text-slate-500">实时EST</th>
+                <th class="py-2 px-3 text-right hidden md:table-cell">公布净值 (基准日待核验)</th>
                 <th class="py-2 px-3 text-right hidden sm:table-cell">官方IOPV溢价</th>
                 <th class="py-2 px-3 text-right hidden lg:table-cell">成交额</th>
                 <th class="py-2 px-3 text-center w-20">建议</th>
@@ -399,11 +406,8 @@
                 <td class="py-2.5 px-3 text-purple-600 dark:text-purple-400 font-semibold text-xs">
                   {{ item.index_name }}
                 </td>
-                <td class="py-2.5 px-3 text-right bg-slate-50/60 dark:bg-slate-800/30">
-                  <span class="inline-block px-2.5 py-0.5 rounded-md font-bold text-xs sm:text-sm"
-                    :class="getPremiumBadgeClass(item.est_premium)">
-                    {{ item.est_premium > 0 ? '+' : '' }}{{ formatNumber(item.est_premium, 2) }}%
-                  </span>
+                <td class="py-2.5 px-3 text-right bg-slate-50/60 dark:bg-slate-800/30 text-slate-400 dark:text-slate-500 font-mono">
+                  --
                 </td>
                 <td class="py-2.5 px-3 text-right font-bold text-xs" :class="getPriceChangeClass(item.change_pct)">
                   {{ formatPercentSign(item.change_pct) }}
@@ -414,23 +418,20 @@
                 <td class="py-2.5 px-3 text-right font-medium text-slate-600 dark:text-slate-300 font-tabular text-xs">
                   {{ item.fee }}
                 </td>
-                <td class="py-2.5 px-3 text-right font-semibold text-indigo-600 dark:text-indigo-300 text-sm">
-                  {{ formatNumber(item.est_realtime, 4) }}
+                <td class="py-2.5 px-3 text-right text-slate-400 dark:text-slate-500 font-mono text-sm">
+                  --
                 </td>
                 <td class="py-2.5 px-3 text-right hidden md:table-cell text-slate-600 dark:text-slate-300">
                   {{ formatNumber(item.nav_t1, 4) }}
                 </td>
                 <td class="py-2.5 px-3 text-right hidden sm:table-cell text-slate-600 dark:text-slate-300 font-medium">
-                  {{ item.iopv_premium > 0 ? '+' : '' }}{{ formatNumber(item.iopv_premium, 2) }}%
+                  {{ item.iopv_premium !== null && item.iopv_premium !== undefined ? ((item.iopv_premium > 0 ? '+' : '') + formatNumber(item.iopv_premium, 2) + '%') : '--' }}
                 </td>
                 <td class="py-2.5 px-3 text-right hidden lg:table-cell text-slate-600 dark:text-slate-300 font-medium">
                   {{ item.amount_str }}
                 </td>
-                <td class="py-2.5 px-3 text-center">
-                  <span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold"
-                    :class="getAdviceBadgeClass(item.premium_level)">
-                    {{ item.premium_advice }}
-                  </span>
+                <td class="py-2.5 px-3 text-center text-slate-400 dark:text-slate-500 text-xs font-mono">
+                  --
                 </td>
               </tr>
             </tbody>
@@ -439,59 +440,66 @@
       </div>
     </section>
 
-    <!-- 核心专区 3: 溢价剪刀差测算器 -->
+    <!-- 核心专区 3: 同指数标的价差测算器 -->
     <section v-if="activeTab === 'nasdaq'" class="mt-5 bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-xl p-3.5 shadow-sm">
       <div class="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-slate-800/60">
         <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
-          溢价剪刀差测算器
-          <span class="text-xs text-slate-500 dark:text-slate-400 font-normal">（高溢价向低溢价换仓 · 锁定估值差）</span>
+          同指数标的价差测算
+          <span class="text-xs text-slate-500 dark:text-slate-400 font-normal">（同基准指数内换仓估值差对比）</span>
         </h3>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
         <div>
-          <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">拟卖出高溢价标的</label>
+          <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">拟卖出标的 (同指数)</label>
           <select v-model="arbSourceCode" class="w-full bg-slate-50 border border-slate-300 dark:bg-slate-950 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-mono font-medium focus:outline-none">
-            <option v-for="item in nasdaq100List" :key="item.code" :value="item.code">
+            <option v-for="item in validNasdaq100List" :key="item.code" :value="item.code">
               {{ item.code }} {{ item.name }} (+{{ item.est_premium }}%)
             </option>
           </select>
         </div>
 
         <div>
-          <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">拟买入低溢价标的</label>
+          <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">拟买入标的 (同指数)</label>
           <select v-model="arbTargetCode" class="w-full bg-slate-50 border border-slate-300 dark:bg-slate-950 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-mono font-medium focus:outline-none">
-            <option v-for="item in nasdaq100List" :key="item.code" :value="item.code">
+            <option v-for="item in validNasdaq100List" :key="item.code" :value="item.code">
               {{ item.code }} {{ item.name }} (+{{ item.est_premium }}%)
             </option>
           </select>
         </div>
 
         <div>
-          <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">置换规模 (股数)</label>
+          <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">置换规模 (有限正数股数)</label>
           <input type="number" v-model.number="arbShares" step="100" min="100" placeholder="1000"
             class="w-full bg-slate-50 border border-slate-300 dark:bg-slate-950 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-tabular font-medium focus:outline-none">
         </div>
       </div>
 
-      <!-- 紧凑计算结论 -->
-      <div class="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 dark:bg-slate-950 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-tabular">
-        <div class="flex items-center gap-5">
-          <div>
-            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">溢价剪刀差: </span>
-            <span class="text-lg font-black" :class="arbSpread >= 3 ? 'text-emerald-600 dark:text-emerald-400' : (arbSpread >= 1 ? 'text-amber-600 dark:text-amber-300' : 'text-slate-500')">
-              {{ arbSpread > 0 ? '+' : '' }}{{ arbSpread.toFixed(2) }}%
-            </span>
+      <!-- 紧凑计算结论与严谨指标声明 -->
+      <div class="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 dark:bg-slate-950 dark:border-slate-800 flex flex-col gap-2 font-tabular">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-5">
+            <div>
+              <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">溢价率差: </span>
+              <span class="text-lg font-black" :class="arbSpread !== null && arbSpread >= 3 ? 'text-emerald-600 dark:text-emerald-400' : (arbSpread !== null && arbSpread >= 1 ? 'text-amber-600 dark:text-amber-300' : 'text-slate-500')">
+                {{ arbSpread !== null ? ((arbSpread > 0 ? '+' : '') + arbSpread.toFixed(2) + ' 个百分点') : '--' }}
+              </span>
+            </div>
+            <div class="border-l border-slate-200 dark:border-slate-800 pl-5">
+              <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">价差金额示意: </span>
+              <span class="text-base font-bold text-slate-900 dark:text-white">{{ arbProfitYuan !== null ? ('≈ ' + arbProfitYuan.toFixed(2) + ' 元') : '--' }}</span>
+            </div>
           </div>
-          <div class="border-l border-slate-200 dark:border-slate-800 pl-5">
-            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">预估增厚收益: </span>
-            <span class="text-base font-bold text-slate-900 dark:text-white">≈ {{ arbProfitYuan.toFixed(2) }} 元</span>
+
+          <div class="text-xs font-bold" :class="arbAdviceColor">
+            {{ arbAdviceTitle }}
           </div>
         </div>
 
-        <div class="text-xs font-bold" :class="arbAdviceColor">
-          {{ arbAdviceTitle }}
+        <!-- 必附风控红线与公式说明 -->
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-200 dark:border-slate-800/60 pt-2">
+          <span class="font-bold text-amber-600 dark:text-amber-400">⚠️ 重要说明</span>：该金额不代表可兑现利润，也不等于换仓后的净值敞口增量。本测算基于“卖出金额 × 溢价率差”理论示意公式，未计入券商买卖双边佣金、经手规费及盘口冲击滑点，且仅限同跟踪指数标的参考。
         </div>
       </div>
     </section>
@@ -533,9 +541,10 @@
           </p>
         </div>
         <div class="p-2.5 rounded bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/70 col-span-1 sm:col-span-2">
-          <div class="font-bold text-cyan-700 dark:text-cyan-300">📡 数据源与底层作用</div>
+          <div class="font-bold text-cyan-700 dark:text-cyan-300">📡 数据源与估值模型局限性说明</div>
           <p class="mt-1 text-slate-500 dark:text-slate-400 leading-relaxed">
-            <strong>天天基金</strong>：全网公募池动态识别；<strong>腾讯行情</strong>：提供二级市场现价与 T-1 官方 NAV 锚点；<strong>CME 期货 (NQ/ES)</strong>：白天美股资产日内涨跌的实时核心驱动；<strong>离岸汇率 (USD/CNH)</strong>：消除跨币种折算偏差。
+            <strong>数据链路</strong>：天天基金（标的发现）、腾讯行情（现价与官方公布净值）、芝商所 CME（NQ/ES 期货日内跳动）、新浪外汇（USD/CNH 汇率）。<br>
+            <strong>核心局限</strong>：① <strong>基准日待核验</strong>：当前接口未提供实时官方净值发布日期核验机制，假定基准净值对应上一交易日；② <strong>持仓近似</strong>：模型假定 100% 紧密复制指数，未计提基金特有的现金留存与申赎缓冲；③ <strong>时间对齐与时滞</strong>：尚未解决微观时刻对齐与过期行情识别；④ <strong>细分行业保守处理</strong>：本系统尚未接入匹配的行业估值数据源，暂停细分行业标的 EST 估算。
           </p>
         </div>
       </div>
@@ -633,13 +642,13 @@
           return macro.value.sp500_scale_factor || '1.0000';
         });
 
-        // 当前分类中，全场实时溢价率最低的标的代码（无论表格如何排序均精准指向该标的）
+        // 当前分类中，全场实时溢价率最低的标的代码（必须具有有效现价且估值非空）
         const minPremiumCode = computed(() => {
           const list = activeTabList.value;
           if (!list || list.length === 0) return null;
           let minItem = null;
           for (const item of list) {
-            if (item.est_premium !== undefined && item.est_premium !== null) {
+            if (item.est_premium !== undefined && item.est_premium !== null && item.price !== null && item.price > 0) {
               if (minItem === null || item.est_premium < minItem.est_premium) {
                 minItem = item;
               }
@@ -657,6 +666,11 @@
         const arbTargetCode = ref('513390');
         const arbShares = ref(1000);
 
+        // 测算器适用的有效纳指标的名单（排除估值缺失与无现价标的）
+        const validNasdaq100List = computed(() => {
+          return nasdaq100List.value.filter(x => x.est_premium !== null && x.est_premium !== undefined && x.price !== null && x.price > 0);
+        });
+
         // 获取行情数据
         const fetchData = async (isManual = false) => {
           if (isManual) loading.value = true;
@@ -672,11 +686,15 @@
               registryInfo.value = res.registry_info || {};
               lastUpdated.value = res.timestamp || new Date().toLocaleTimeString();
 
-              if (!arbSourceCode.value && nasdaq100List.value.length > 0) {
-                arbSourceCode.value = nasdaq100List.value[nasdaq100List.value.length - 1].code;
-              }
-              if (!arbTargetCode.value && nasdaq100List.value.length > 0) {
-                arbTargetCode.value = nasdaq100List.value[0].code;
+              // 自动初始化测算器默认标的（选有效项）
+              const validList = validNasdaq100List.value;
+              if (validList.length > 0) {
+                if (!validList.some(x => x.code === arbSourceCode.value)) {
+                  arbSourceCode.value = validList[validList.length - 1].code;
+                }
+                if (!validList.some(x => x.code === arbTargetCode.value)) {
+                  arbTargetCode.value = validList[0].code;
+                }
               }
             }
           } catch (e) {
@@ -706,15 +724,24 @@
           }
         };
 
-        // 排序计算（基于当前激活分类的 activeTabList）
+        // 排序计算（基于当前激活分类的 activeTabList；无论升降序，空值 null/undefined 必须永远沉底）
         const sortedList = computed(() => {
           const list = [...activeTabList.value];
           list.sort((a, b) => {
-            let va = a[sortKey.value];
-            let vb = b[sortKey.value];
-            if (typeof va === 'string') va = parseFloat(va) || 0;
-            if (typeof vb === 'string') vb = parseFloat(vb) || 0;
-            return sortAsc.value ? (va - vb) : (vb - va);
+            const va = a[sortKey.value];
+            const vb = b[sortKey.value];
+            const aNull = (va === null || va === undefined);
+            const bNull = (vb === null || vb === undefined);
+            if (aNull && bNull) return 0;
+            // 关键：无论升序还是降序，空值始终沉底
+            if (aNull) return 1;
+            if (bNull) return -1;
+
+            let numA = (typeof va === 'string') ? parseFloat(va) : va;
+            let numB = (typeof vb === 'string') ? parseFloat(vb) : vb;
+            if (isNaN(numA)) numA = 0;
+            if (isNaN(numB)) numB = 0;
+            return sortAsc.value ? (numA - numB) : (numB - numA);
           });
           return list;
         });
@@ -732,25 +759,39 @@
         const arbSource = computed(() => nasdaq100List.value.find(x => x.code === arbSourceCode.value));
         const arbTarget = computed(() => nasdaq100List.value.find(x => x.code === arbTargetCode.value));
 
-        const arbSpread = computed(() => {
-          if (!arbSource.value || !arbTarget.value) return 0;
-          return (arbSource.value.est_premium || 0) - (arbTarget.value.est_premium || 0);
+        // 份额有效性检查：必须为有限正数
+        const isSharesValid = computed(() => {
+          return typeof arbShares.value === 'number' && Number.isFinite(arbShares.value) && arbShares.value > 0;
         });
 
+        // 溢价率差（百分点）
+        const arbSpread = computed(() => {
+          if (!arbSource.value || !arbTarget.value) return null;
+          if (arbSource.value.est_premium === null || arbSource.value.est_premium === undefined) return null;
+          if (arbTarget.value.est_premium === null || arbTarget.value.est_premium === undefined) return null;
+          // 同指数强制限制由代码执行
+          if (arbSource.value.index_name !== arbTarget.value.index_name) return null;
+          return Number((arbSource.value.est_premium - arbTarget.value.est_premium).toFixed(2));
+        });
+
+        // 价差金额示意（卖出金额 × 溢价率差）
         const arbProfitYuan = computed(() => {
-          if (!arbSource.value || !arbTarget.value || !arbShares.value) return 0;
+          if (arbSpread.value === null || !isSharesValid.value) return null;
+          if (!arbSource.value || arbSource.value.price === null || arbSource.value.price <= 0) return null;
           const sellAmount = arbShares.value * arbSource.value.price;
-          return sellAmount * (arbSpread.value / 100.0);
+          return Math.round(sellAmount * (arbSpread.value / 100.0));
         });
 
         const arbAdviceTitle = computed(() => {
-          if (arbSpread.value >= 4.0) return '🚀 强烈建议置换（价差显著）';
-          if (arbSpread.value >= 2.0) return '⚡ 可适度置换（存在确定性价差）';
-          if (arbSpread.value > 0) return '⏳ 空间较小（摩擦成本过高）';
-          return '🛑 反向操作预警';
+          if (arbSpread.value === null) return '⚠️ 标的估值或参数不可用，无法测算';
+          if (arbSpread.value >= 4.0) return '💡 估值存在显著差异（可参考调仓空间）';
+          if (arbSpread.value >= 2.0) return '🔎 估值存在温和差异（需结合交易滑点评估）';
+          if (arbSpread.value > 0) return '⏳ 差值较小（易被买卖佣金与价差抹平）';
+          return '🛑 拟买入端溢价更高，无逆向调仓空间';
         });
 
         const arbAdviceColor = computed(() => {
+          if (arbSpread.value === null) return 'text-slate-400';
           if (arbSpread.value >= 4.0) return 'text-emerald-600 dark:text-emerald-400';
           if (arbSpread.value >= 2.0) return 'text-cyan-600 dark:text-cyan-400';
           if (arbSpread.value > 0) return 'text-amber-600 dark:text-amber-400';
@@ -770,12 +811,14 @@
         };
 
         const getPriceChangeClass = (pct) => {
+          if (pct === null || pct === undefined || isNaN(pct)) return 'text-slate-400 dark:text-slate-500';
           if (pct > 0) return 'text-rose-600 dark:text-rose-400';
           if (pct < 0) return 'text-emerald-600 dark:text-emerald-400';
           return 'text-slate-500 dark:text-slate-400';
         };
 
         const getPremiumTextColor = (premium) => {
+          if (premium === null || premium === undefined || isNaN(premium)) return 'text-slate-400 dark:text-slate-500';
           if (premium < 3.0) return 'text-emerald-600 dark:text-emerald-400';
           if (premium < 6.0) return 'text-cyan-600 dark:text-cyan-400';
           if (premium < 10.0) return 'text-amber-600 dark:text-amber-300';
@@ -784,6 +827,9 @@
         };
 
         const getPremiumBadgeClass = (premium) => {
+          if (premium === null || premium === undefined || isNaN(premium)) {
+            return 'bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 font-mono';
+          }
           if (premium < 3.0) return 'bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/50';
           if (premium < 6.0) return 'bg-cyan-100 text-cyan-800 border border-cyan-300 dark:bg-cyan-500/20 dark:text-cyan-300 dark:border-cyan-500/50';
           if (premium < 10.0) return 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/50';
@@ -798,7 +844,7 @@
             case 'warning': return 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30';
             case 'danger': return 'bg-orange-100 text-orange-800 border border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30';
             case 'bubble': return 'bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/40';
-            default: return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
+            default: return 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 font-mono';
           }
         };
 
