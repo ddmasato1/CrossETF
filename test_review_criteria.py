@@ -11,6 +11,7 @@ NasDashboard 核心逻辑与验收测试脚本
 6. 行业 ETF 保守处理（不输出估值与评级）
 7. 排序沉底（升序沉底、降序沉底）
 8. 全无效时均值与极值输出 None
+9. 移动端核心卡片与桌面表格并存
 """
 
 import os
@@ -195,8 +196,34 @@ def run_tests():
         if os.path.exists(test_hist_file):
             os.remove(test_hist_file)
 
+    # -------------------------------------------------------------
+    # 测试 8: 移动端核心卡片与桌面表格静态结构
+    # -------------------------------------------------------------
+    index_file = os.path.join(server.CURRENT_DIR, "static", "index.html")
+    with open(index_file, "r", encoding="utf-8") as f:
+        index_html = f.read()
+
+    required_mobile_markers = [
+        'data-mobile-etf-list',
+        'data-mobile-sector-list',
+        'expandedEtfCode',
+        'toggleEtfDetails(item.code)',
+        ':aria-expanded="expandedEtfCode === item.code"',
+        '实时溢价',
+        '涨跌幅',
+        '现价',
+        '完整数据',
+    ]
+    for marker in required_mobile_markers:
+        assert marker in index_html, f"移动端结构缺少关键标记: {marker}"
+
+    assert index_html.count('hidden sm:block bg-white border') >= 2, "核心与行业桌面表格必须在 sm 断点保留"
+    assert 'role="dialog" aria-modal="true"' in index_html, "历史档案必须提供 dialog 语义"
+    assert ':aria-expanded="showKnowledge"' in index_html, "风控折叠区必须暴露展开状态"
+    print("✅ 测试 8 通过: 手机核心卡片、行内详情与桌面表格响应式结构并存")
+
     print("=" * 60)
-    print("🎉 全部 7 项核心业务单元测试 100% 验证通过！")
+    print("🎉 全部 8 项核心业务与响应式结构测试 100% 验证通过！")
     print("=" * 60)
 
 if __name__ == "__main__":

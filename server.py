@@ -19,7 +19,7 @@ import re
 import threading
 
 # 基础配置
-APP_VERSION = "v1.3.0"
+APP_VERSION = "v1.4.0"
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
 

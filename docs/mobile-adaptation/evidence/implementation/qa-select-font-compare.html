@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>价差测算选框字体 QA 对照</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px; background: #e2e8f0; color: #0f172a; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 980px; margin: 0 auto; align-items: start; }
+    section { background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 16px; box-shadow: 0 8px 24px rgb(15 23 42 / 8%); }
+    h2 { margin: 0 0 12px; font-size: 16px; }
+    img { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid #e2e8f0; }
+    .implementation { max-width: 375px; margin: 0 auto; }
+    p { margin: 10px 0 0; color: #475569; }
+    @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section>
+      <h2>修改前：等宽字体偏大、视觉突兀</h2>
+      <img src="../select-font-before.png" alt="修改前价差测算选框字体">
+      <p>原样式：等宽字体，浏览器默认约 16px。</p>
+    </section>
+    <section>
+      <h2>修改后：统一系统无衬线字体</h2>
+      <img class="implementation" src="12-calculator-select-font.jpg" alt="修改后价差测算选框字体">
+      <p>新样式：系统无衬线字体、14px、500 字重；控件高度仍为 44px。</p>
+    </section>
+  </main>
+</body>
+</html>

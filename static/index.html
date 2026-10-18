@@ -44,44 +44,47 @@
   <div id="app" v-cloak class="max-w-7xl mx-auto px-3 sm:px-6 py-4">
 
     <!-- 顶部状态与控制栏 -->
-    <header class="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 border-b border-slate-200 dark:border-slate-800/80 gap-3">
-      <div class="flex items-center gap-3">
-        <!-- 品牌专属金融科技质感图标 -->
-        <img src="/favicon.png" alt="CrossETF" class="w-8 h-8 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 select-none object-cover" />
-        <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-          <span>CrossETF</span>
-          <span class="text-xs font-normal text-slate-500 dark:text-slate-400 hidden sm:inline">跨境ETF实时溢价</span>
-          <!-- 版本编号徽章 -->
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-bold tracking-wider shadow-xs" title="当前系统版本编号">
-            {{ appVersion }}
-          </span>
-          <!-- 历史归档沉淀胶囊 -->
+    <header class="flex flex-col sm:flex-row sm:items-start justify-between pb-3.5 border-b border-slate-200 dark:border-slate-800/80 gap-3">
+      <div class="w-full sm:w-auto">
+        <div class="flex items-center gap-3">
+          <!-- 品牌专属金融科技质感图标 -->
+          <img src="/favicon.png" alt="CrossETF" class="w-9 h-9 sm:w-8 sm:h-8 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 select-none object-cover" />
+          <h1 class="min-w-0 text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <span>CrossETF</span>
+            <span class="text-xs font-normal text-slate-500 dark:text-slate-400 hidden sm:inline">跨境ETF实时溢价</span>
+            <span class="shrink-0 text-[10px] font-mono px-2 py-1 rounded-md bg-slate-200/90 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-bold tracking-wider shadow-xs" title="当前系统版本编号">
+              {{ appVersion }}
+            </span>
+          </h1>
+        </div>
+
+        <!-- 手机端独立状态行，避免状态胶囊挤压品牌标题 -->
+        <div class="grid grid-cols-2 gap-2 mt-3 sm:flex sm:items-center sm:gap-2 sm:mt-1.5 sm:ml-11">
           <button @click="openHistoryModal"
-            class="text-[11px] px-2.5 py-0.5 rounded-md font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-950/70 dark:text-indigo-300 dark:border-indigo-800/80 flex items-center gap-1 transition-colors shadow-2xs cursor-pointer"
+            class="min-h-11 sm:min-h-0 whitespace-nowrap text-xs sm:text-[11px] px-2.5 py-2 sm:py-0.5 rounded-lg sm:rounded-md font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-950/70 dark:text-indigo-300 dark:border-indigo-800/80 flex items-center justify-center gap-1 transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             title="点击查看每日收盘历史档案与大盘情绪温度计">
-            <span>📦</span>
-            <span>已沉淀 {{ historyTotalDays }} 天</span>
+            <span aria-hidden="true">📦</span>
+            <span>历史归档 {{ historyTotalDays }} 天</span>
           </button>
-          <!-- 标的池状态小胶囊 -->
           <span v-if="registryInfo.status === 'online_fresh'"
-            class="text-[11px] px-2.5 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-600/50 flex items-center gap-1.5 shadow-sm">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            当日在线最新
+            class="min-h-11 sm:min-h-0 whitespace-nowrap text-xs sm:text-[11px] px-2.5 py-2 sm:py-0.5 rounded-lg sm:rounded-full font-medium bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-600/50 flex items-center justify-center gap-1.5 shadow-sm">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true"></span>
+            行情在线最新
           </span>
           <span v-else-if="registryInfo.status === 'cached_fallback'"
-            class="text-[11px] px-2.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-600/50 flex items-center gap-1.5 shadow-sm">
-            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-            前日缓存 ({{ registryInfo.cached_date }})
+            class="min-h-11 sm:min-h-0 whitespace-nowrap text-xs sm:text-[11px] px-2.5 py-2 sm:py-0.5 rounded-lg sm:rounded-full font-medium bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-600/50 flex items-center justify-center gap-1.5 shadow-sm">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>
+            缓存 {{ registryInfo.cached_date }}
           </span>
-        </h1>
+        </div>
       </div>
 
       <!-- 控制区 -->
-      <div class="flex items-center flex-wrap gap-2 text-xs">
+      <div class="grid grid-cols-3 sm:flex sm:items-center gap-2 text-xs w-full sm:w-auto">
         <!-- 自动轮询选择（支持手动、5s、15s、30s、自定义） -->
-        <div class="flex items-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 rounded-lg px-2.5 py-1 gap-1.5 shadow-sm">
+        <div class="col-span-3 min-h-11 sm:min-h-0 flex items-center justify-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 rounded-lg px-2.5 py-1 gap-1.5 shadow-sm">
           <span class="text-slate-500 dark:text-slate-400">刷新:</span>
-          <select v-model="refreshOption" @change="onRefreshOptionChange" class="bg-transparent text-emerald-600 dark:text-emerald-400 font-semibold focus:outline-none cursor-pointer">
+          <select v-model="refreshOption" @change="onRefreshOptionChange" class="min-h-11 sm:min-h-0 px-2 sm:px-0 bg-transparent text-emerald-600 dark:text-emerald-400 font-semibold focus:outline-none cursor-pointer">
             <option :value="0" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-white">手动</option>
             <option :value="5" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-white">5s</option>
             <option :value="15" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-white">15s</option>
@@ -91,7 +94,7 @@
           <!-- 自定义秒数微型输入框 -->
           <div v-if="refreshOption === 'custom'" class="flex items-center gap-1 border-l border-slate-200 dark:border-slate-700 pl-1.5">
             <input type="number" v-model.number="customSeconds" @change="onCustomSecondsChange" min="3" max="3600"
-              class="w-12 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-center text-xs font-tabular font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              class="w-14 min-h-11 sm:min-h-0 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-center text-xs font-tabular font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
             <span class="text-[11px] text-slate-500 dark:text-slate-400">s</span>
           </div>
           <span v-if="currentIntervalSeconds > 0" class="text-slate-400 dark:text-slate-500 font-tabular text-[11px]">({{ countdown }}s)</span>
@@ -99,7 +102,7 @@
 
         <!-- 一键切换主题按钮 (☀️ 护眼明亮 / 🌙 深色夜间) -->
         <button @click="toggleTheme" title="一键切换护眼明亮 / 深色夜间模式"
-          class="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-200 dark:border-slate-800 font-medium rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+          class="min-h-11 sm:min-h-0 px-2 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-200 dark:border-slate-800 font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
           <span v-if="isDarkMode" class="flex items-center gap-1 text-amber-300">
             <span>🌙</span>
             <span>夜间模式</span>
@@ -112,7 +115,7 @@
 
         <!-- 同步标的按钮 -->
         <button @click="syncSymbols" :disabled="syncing" title="在线重新检测天天基金全网代码库"
-          class="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-200 dark:border-slate-800 font-medium rounded-lg transition-colors flex items-center gap-1 shadow-sm">
+          class="min-h-11 sm:min-h-0 px-2 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-200 dark:border-slate-800 font-medium rounded-lg transition-colors flex items-center justify-center gap-1 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">
           <svg :class="{'animate-spin': syncing}" class="w-3 h-3 text-cyan-600 dark:text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -121,7 +124,7 @@
 
         <!-- 即时刷新行情按钮 -->
         <button @click="fetchData(true)" :disabled="loading"
-          class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-white font-medium rounded-lg transition-colors flex items-center gap-1 shadow-sm">
+          class="min-h-11 sm:min-h-0 px-2 py-1 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-1 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
           <svg :class="{'animate-spin': loading}" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
@@ -170,9 +173,9 @@
     <section class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-3.5">
       <!-- CME NQ 期货 -->
       <div class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-lg p-2.5 shadow-sm">
-        <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+        <div class="flex items-center justify-between text-xs sm:text-[11px] text-slate-500 dark:text-slate-400">
           <span>CME 纳指期货 (NQ)</span>
-          <span class="text-[10px] text-slate-400 dark:text-slate-500 font-tabular">{{ macro.cme_nq?.time || '--' }}</span>
+          <span class="hidden sm:inline text-[10px] text-slate-400 dark:text-slate-500 font-tabular">{{ macro.cme_nq?.time || '--' }}</span>
         </div>
         <div class="mt-1 flex items-baseline justify-between">
           <span class="text-base sm:text-lg font-bold font-tabular text-slate-900 dark:text-white">{{ formatNumber(macro.cme_nq?.price, 2) }}</span>
@@ -184,9 +187,9 @@
 
       <!-- CME ES 标普期货 -->
       <div class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-lg p-2.5 shadow-sm">
-        <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+        <div class="flex items-center justify-between text-xs sm:text-[11px] text-slate-500 dark:text-slate-400">
           <span>CME 标普期货 (ES)</span>
-          <span class="text-[10px] text-slate-400 dark:text-slate-500 font-tabular">{{ macro.cme_es?.time || '--' }}</span>
+          <span class="hidden sm:inline text-[10px] text-slate-400 dark:text-slate-500 font-tabular">{{ macro.cme_es?.time || '--' }}</span>
         </div>
         <div class="mt-1 flex items-baseline justify-between">
           <span class="text-base sm:text-lg font-bold font-tabular text-slate-900 dark:text-white">{{ formatNumber(macro.cme_es?.price, 2) }}</span>
@@ -198,9 +201,9 @@
 
       <!-- 离岸汇率 USD/CNH -->
       <div class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-lg p-2.5 shadow-sm">
-        <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+        <div class="flex items-center justify-between text-xs sm:text-[11px] text-slate-500 dark:text-slate-400">
           <span>离岸汇率 (USD/CNH)</span>
-          <span class="text-[10px] text-slate-400 dark:text-slate-500 font-tabular">{{ macro.usd_cnh?.time || '--' }}</span>
+          <span class="hidden sm:inline text-[10px] text-slate-400 dark:text-slate-500 font-tabular">{{ macro.usd_cnh?.time || '--' }}</span>
         </div>
         <div class="mt-1 flex items-baseline justify-between">
           <span class="text-base sm:text-lg font-bold font-tabular text-slate-900 dark:text-white">{{ formatNumber(macro.usd_cnh?.rate, 4) }}</span>
@@ -212,7 +215,7 @@
 
       <!-- 当前Tab对应的均溢价 -->
       <div class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-lg p-2.5 shadow-sm">
-        <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+        <div class="flex items-center justify-between text-xs sm:text-[11px] text-slate-500 dark:text-slate-400">
           <span>{{ activeTab === 'nasdaq' ? '纳指100' : '标普500' }}均溢价</span>
           <span class="text-[10px] text-slate-400 dark:text-slate-500">{{ activeTabList.length }}只样本</span>
         </div>
@@ -229,28 +232,28 @@
 
     <!-- 核心宽基 ETF Tab 切换区 -->
     <section class="mt-5">
-      <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2">
         <!-- Tab 切换按钮组 -->
-        <div class="flex items-center gap-1">
-          <button @click="activeTab = 'nasdaq'"
+        <div class="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-1" role="tablist" aria-label="ETF 分类">
+          <button @click="selectTab('nasdaq')" role="tab" :aria-selected="activeTab === 'nasdaq'"
             :class="activeTab === 'nasdaq'
               ? 'bg-emerald-600 text-white shadow-sm'
               : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800'"
-            class="px-3 py-1.5 rounded-lg text-sm font-bold transition-colors">
+            class="min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
             纳斯达克100 ({{ nasdaq100List.length }})
           </button>
-          <button @click="activeTab = 'sp500'"
+          <button @click="selectTab('sp500')" role="tab" :aria-selected="activeTab === 'sp500'"
             :class="activeTab === 'sp500'
               ? 'bg-blue-600 text-white shadow-sm'
               : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800'"
-            class="px-3 py-1.5 rounded-lg text-sm font-bold transition-colors">
+            class="min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
             标普500 ({{ sp500List.length }})
           </button>
-          <span class="text-xs text-slate-500 dark:text-slate-400 ml-1">· 按溢价率升序</span>
+          <span class="col-span-2 text-xs text-slate-500 dark:text-slate-400 sm:ml-1">按{{ sortKey === 'est_premium' ? '溢价率' : sortKey }}{{ sortAsc ? '升序' : '降序' }}</span>
         </div>
 
         <!-- 极简色卡图例 -->
-        <div class="flex items-center gap-2.5 text-[11px] text-slate-500 dark:text-slate-400">
+        <div class="hidden sm:flex items-center gap-2.5 text-[11px] text-slate-500 dark:text-slate-400">
           <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>安全(&lt;3%)</span>
           <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-cyan-500"></span>温和(3~6%)</span>
           <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span>偏高(6~10%)</span>
@@ -259,8 +262,57 @@
         </div>
       </div>
 
-      <!-- 宽基纯净数据表格 -->
-      <div class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-sm">
+      <!-- 手机端核心数据卡片：默认只展示代码/简称、实时溢价率、涨跌幅、现价 -->
+      <div class="sm:hidden space-y-2" data-mobile-etf-list>
+        <article v-for="item in sortedList" :key="'mobile-' + item.code"
+          class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-sm">
+          <button type="button" @click="toggleEtfDetails(item.code)"
+            :aria-expanded="expandedEtfCode === item.code"
+            :aria-controls="'etf-details-' + item.code"
+            class="w-full min-h-20 grid grid-cols-[minmax(0,1.45fr)_minmax(66px,.85fr)_minmax(52px,.7fr)_minmax(48px,.62fr)] items-center gap-1.5 px-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500">
+            <span class="min-w-0">
+              <span class="block font-mono font-black text-base tracking-wide text-slate-900 dark:text-white">{{ item.code }}</span>
+              <span class="block mt-1.5 text-xs leading-tight text-slate-500 dark:text-slate-400 break-words">{{ item.name }}</span>
+            </span>
+            <span class="text-right">
+              <span class="block text-[10px] text-slate-400 dark:text-slate-500">实时溢价</span>
+              <span class="inline-block mt-1.5 px-1.5 py-1 rounded-md font-bold text-xs shadow-sm whitespace-nowrap" :class="getPremiumBadgeClass(item.est_premium)">
+                {{ item.est_premium !== null && item.est_premium !== undefined ? ((item.est_premium > 0 ? '+' : '') + formatNumber(item.est_premium, 2) + '%') : '--' }}
+              </span>
+            </span>
+            <span class="text-right">
+              <span class="block text-[10px] text-slate-400 dark:text-slate-500">涨跌幅</span>
+              <span class="block mt-2 font-bold text-xs whitespace-nowrap" :class="getPriceChangeClass(item.change_pct)">{{ formatPercentSign(item.change_pct) }}</span>
+            </span>
+            <span class="text-right">
+              <span class="block text-[10px] text-slate-400 dark:text-slate-500">现价</span>
+              <span class="block mt-2 font-bold text-xs font-tabular text-slate-900 dark:text-white whitespace-nowrap">{{ formatNumber(item.price, 3) }}</span>
+            </span>
+          </button>
+
+          <div v-show="expandedEtfCode === item.code" :id="'etf-details-' + item.code" class="px-3 pb-3">
+            <div class="rounded-lg border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-950/70 p-3">
+              <div class="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200">
+                <span>完整数据</span><span class="text-emerald-600 dark:text-emerald-400 font-medium">点击上方收起</span>
+              </div>
+              <dl class="grid grid-cols-2 gap-x-5 gap-y-3 mt-3 font-tabular">
+                <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">综合费率</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ item.fee || '--' }}</dd></div>
+                <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">实时估值 IOPV</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ formatNumber(item.est_realtime, 4) }}</dd></div>
+                <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">公布净值</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ formatNumber(item.nav_t1, 4) }}</dd></div>
+                <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">成交额</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ item.amount_str || '--' }}</dd></div>
+                <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">市场</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ item.market || '--' }}</dd></div>
+                <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">跟踪指数</dt><dd class="mt-1 text-xs leading-tight font-bold text-slate-900 dark:text-white break-words">{{ item.index_name || '--' }}</dd></div>
+              </dl>
+              <div class="mt-3 px-3 py-2.5 rounded-lg text-xs font-semibold leading-relaxed" :class="getAdviceBadgeClass(item.premium_level)">
+                {{ item.premium_advice && item.premium_advice !== '--' ? item.premium_advice : '暂无风险建议' }}
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- 桌面端宽基纯净数据表格 -->
+      <div class="hidden sm:block bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs sm:text-sm">
             <thead class="bg-slate-50 text-slate-600 dark:bg-slate-950/70 dark:text-slate-400 text-xs border-b border-slate-200 dark:border-slate-800 font-semibold">
@@ -397,14 +449,63 @@
     <!-- 核心专区 2: 细分行业与主题 ETF (紧凑纯净表格) -->
     <section class="mt-5" v-if="activeTab === 'nasdaq' && sectorList.length > 0">
       <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 min-w-0">
           <span class="w-2 h-2 rounded-full bg-purple-500"></span>
-          <h2 class="text-base font-bold text-slate-900 dark:text-white">行业与细分主题 ETF ({{ sectorList.length }})</h2>
-          <span class="text-xs text-purple-600 dark:text-purple-400 font-medium">· 科技/生物等细分指数</span>
+          <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">行业与细分主题 ETF ({{ sectorList.length }})</h2>
+          <span class="hidden sm:inline text-xs text-purple-600 dark:text-purple-400 font-medium">· 科技/生物等细分指数</span>
         </div>
       </div>
 
-      <div class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-sm">
+      <!-- 手机端行业与主题 ETF 卡片 -->
+      <div class="sm:hidden space-y-2" data-mobile-sector-list>
+        <article v-for="item in sectorList" :key="'mobile-sector-' + item.code"
+          class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-sm">
+          <button type="button" @click="toggleEtfDetails(item.code)"
+            :aria-expanded="expandedEtfCode === item.code"
+            :aria-controls="'etf-details-' + item.code"
+            class="w-full min-h-20 grid grid-cols-[minmax(0,1.45fr)_minmax(66px,.85fr)_minmax(52px,.7fr)_minmax(48px,.62fr)] items-center gap-1.5 px-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500">
+            <span class="min-w-0">
+              <span class="block font-mono font-black text-base tracking-wide text-slate-900 dark:text-white">{{ item.code }}</span>
+              <span class="block mt-1.5 text-xs leading-tight text-slate-500 dark:text-slate-400 break-words">{{ item.name }}</span>
+            </span>
+            <span class="text-right">
+              <span class="block text-[10px] text-slate-400 dark:text-slate-500">实时溢价</span>
+              <span class="inline-block mt-1.5 px-1.5 py-1 rounded-md font-bold text-xs shadow-sm whitespace-nowrap" :class="getPremiumBadgeClass(item.est_premium)">
+                {{ item.est_premium !== null && item.est_premium !== undefined ? ((item.est_premium > 0 ? '+' : '') + formatNumber(item.est_premium, 2) + '%') : '--' }}
+              </span>
+            </span>
+            <span class="text-right">
+              <span class="block text-[10px] text-slate-400 dark:text-slate-500">涨跌幅</span>
+              <span class="block mt-2 font-bold text-xs whitespace-nowrap" :class="getPriceChangeClass(item.change_pct)">{{ formatPercentSign(item.change_pct) }}</span>
+            </span>
+            <span class="text-right">
+              <span class="block text-[10px] text-slate-400 dark:text-slate-500">现价</span>
+              <span class="block mt-2 font-bold text-xs font-tabular text-slate-900 dark:text-white whitespace-nowrap">{{ formatNumber(item.price, 3) }}</span>
+            </span>
+          </button>
+
+          <div v-show="expandedEtfCode === item.code" :id="'etf-details-' + item.code" class="px-3 pb-3">
+            <div class="rounded-lg border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-950/70 p-3">
+              <div class="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200">
+                <span>完整数据</span><span class="text-purple-600 dark:text-purple-400 font-medium">点击上方收起</span>
+              </div>
+              <dl class="grid grid-cols-2 gap-x-5 gap-y-3 mt-3 font-tabular">
+                <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">综合费率</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ item.fee || '--' }}</dd></div>
+                <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">实时估值 IOPV</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ formatNumber(item.est_realtime, 4) }}</dd></div>
+                <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">公布净值</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ formatNumber(item.nav_t1, 4) }}</dd></div>
+                <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">成交额</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ item.amount_str || '--' }}</dd></div>
+                <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">市场</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ item.market || '--' }}</dd></div>
+                <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">跟踪指数</dt><dd class="mt-1 text-xs leading-tight font-bold text-slate-900 dark:text-white break-words">{{ item.index_name || '--' }}</dd></div>
+              </dl>
+              <div class="mt-3 px-3 py-2.5 rounded-lg text-xs font-semibold leading-relaxed" :class="getAdviceBadgeClass(item.premium_level)">
+                {{ item.premium_advice && item.premium_advice !== '--' ? item.premium_advice : '暂无风险建议' }}
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="hidden sm:block bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs sm:text-sm">
             <thead class="bg-slate-50 text-slate-600 dark:bg-slate-950/70 dark:text-slate-400 text-xs border-b border-slate-200 dark:border-slate-800 font-semibold">
@@ -481,17 +582,17 @@
     <!-- 核心专区 3: 同指数标的价差测算器 -->
     <section v-if="activeTab === 'nasdaq'" class="mt-5 bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-xl p-3.5 shadow-sm">
       <div class="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-slate-800/60">
-        <h3 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+        <h3 class="text-sm font-bold text-slate-900 dark:text-white flex flex-wrap items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
           同指数标的价差测算
-          <span class="text-xs text-slate-500 dark:text-slate-400 font-normal">（同基准指数内换仓估值差对比）</span>
+          <span class="w-full sm:w-auto ml-3.5 sm:ml-0 text-xs text-slate-500 dark:text-slate-400 font-normal">（同基准指数内换仓估值差对比）</span>
         </h3>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
         <div>
           <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">拟卖出标的 (同指数)</label>
-          <select v-model="arbSourceCode" class="w-full bg-slate-50 border border-slate-300 dark:bg-slate-950 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-mono font-medium focus:outline-none">
+          <select v-model="arbSourceCode" class="w-full min-h-11 bg-slate-50 border border-slate-300 dark:bg-slate-950 dark:border-slate-700 rounded-lg p-2 text-sm text-slate-900 dark:text-white font-medium tracking-normal focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">
             <option v-for="item in validNasdaq100List" :key="item.code" :value="item.code">
               {{ item.code }} {{ item.name }} (+{{ item.est_premium }}%)
             </option>
@@ -500,7 +601,7 @@
 
         <div>
           <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">拟买入标的 (同指数)</label>
-          <select v-model="arbTargetCode" class="w-full bg-slate-50 border border-slate-300 dark:bg-slate-950 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-mono font-medium focus:outline-none">
+          <select v-model="arbTargetCode" class="w-full min-h-11 bg-slate-50 border border-slate-300 dark:bg-slate-950 dark:border-slate-700 rounded-lg p-2 text-sm text-slate-900 dark:text-white font-medium tracking-normal focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">
             <option v-for="item in validNasdaq100List" :key="item.code" :value="item.code">
               {{ item.code }} {{ item.name }} (+{{ item.est_premium }}%)
             </option>
@@ -510,23 +611,23 @@
         <div>
           <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1 font-medium">置换规模 (有限正数股数)</label>
           <input type="number" v-model.number="arbShares" step="100" min="100" placeholder="1000"
-            class="w-full bg-slate-50 border border-slate-300 dark:bg-slate-950 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-tabular font-medium focus:outline-none">
+            class="w-full min-h-11 bg-slate-50 border border-slate-300 dark:bg-slate-950 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-tabular font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">
         </div>
       </div>
 
       <!-- 紧凑计算结论与严谨指标声明 -->
       <div class="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 dark:bg-slate-950 dark:border-slate-800 flex flex-col gap-2 font-tabular">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div class="flex items-center gap-5">
-            <div>
-              <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">溢价率差: </span>
-              <span class="text-lg font-black" :class="arbSpread !== null && arbSpread >= 3 ? 'text-emerald-600 dark:text-emerald-400' : (arbSpread !== null && arbSpread >= 1 ? 'text-amber-600 dark:text-amber-300' : 'text-slate-500')">
+          <div class="grid grid-cols-2 gap-3 sm:flex sm:items-center sm:gap-5 w-full sm:w-auto">
+            <div class="min-w-0">
+              <span class="block sm:inline text-xs text-slate-500 dark:text-slate-400 font-medium mb-1 sm:mb-0">溢价率差: </span>
+              <span class="block sm:inline text-lg font-black whitespace-nowrap" :class="arbSpread !== null && arbSpread >= 3 ? 'text-emerald-600 dark:text-emerald-400' : (arbSpread !== null && arbSpread >= 1 ? 'text-amber-600 dark:text-amber-300' : 'text-slate-500')">
                 {{ arbSpread !== null ? ((arbSpread > 0 ? '+' : '') + arbSpread.toFixed(2) + '%') : '--' }}
               </span>
             </div>
-            <div class="border-l border-slate-200 dark:border-slate-800 pl-5">
-              <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">价差金额示意: </span>
-              <span class="text-base font-bold text-slate-900 dark:text-white">{{ arbProfitYuan !== null ? ('≈ ' + arbProfitYuan.toFixed(2) + ' 元') : '--' }}</span>
+            <div class="min-w-0 border-l border-slate-200 dark:border-slate-800 pl-3 sm:pl-5">
+              <span class="block sm:inline text-xs text-slate-500 dark:text-slate-400 font-medium mb-1 sm:mb-0">价差金额示意: </span>
+              <span class="block sm:inline text-base font-bold text-slate-900 dark:text-white whitespace-nowrap">{{ arbProfitYuan !== null ? ('≈ ' + arbProfitYuan.toFixed(2) + ' 元') : '--' }}</span>
             </div>
           </div>
 
@@ -545,6 +646,7 @@
     <!-- 可折叠知识与风控锦囊（默认收起） -->
     <section class="mt-5 bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-sm">
       <button @click="showKnowledge = !showKnowledge"
+        :aria-expanded="showKnowledge" aria-controls="knowledge-panel"
         class="w-full px-4 py-3 flex items-center justify-between text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors">
         <span class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-amber-500"></span>
@@ -553,7 +655,7 @@
         <span class="text-slate-400 text-xs">{{ showKnowledge ? '▲ 收起' : '▼ 展开' }}</span>
       </button>
 
-      <div v-show="showKnowledge" class="p-4 pt-1 border-t border-slate-200 dark:border-slate-800/60 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600 dark:text-slate-300">
+      <div id="knowledge-panel" v-show="showKnowledge" class="p-4 pt-1 border-t border-slate-200 dark:border-slate-800/60 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
         <div class="p-2.5 rounded bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/70">
           <div class="font-bold text-amber-700 dark:text-amber-300">❓ 为什么跌了溢价反而高了？</div>
           <p class="mt-1 text-slate-500 dark:text-slate-400 leading-relaxed">
@@ -589,39 +691,41 @@
     </section>
 
     <!-- 每日收盘历史归档速览抽屉/模态框 -->
-    <div v-if="showHistoryModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div v-if="showHistoryModal" @click.self="closeHistoryModal" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+      <div role="dialog" aria-modal="true" aria-labelledby="history-modal-title"
+        class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[92vh] sm:max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <!-- 模态框顶部 -->
-        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-          <div class="flex items-center gap-2.5">
+        <div class="px-4 sm:px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-2">
+          <div class="flex items-start gap-2.5 min-w-0">
             <span class="text-xl">📦</span>
-            <div>
-              <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <div class="min-w-0">
+              <h3 id="history-modal-title" class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                 每日收盘历史档案
-                <span class="text-xs px-2 py-0.5 rounded-full font-mono font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                <span class="self-start whitespace-nowrap text-xs px-2 py-0.5 rounded-full font-mono font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
                   已累计 {{ historyTotalDays }} 天
                 </span>
               </h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400">工作日 15:02 后台守护进程自动沉淀，记录大盘情绪温度计与最优标的</p>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">工作日 15:02 后台守护进程自动沉淀，记录大盘情绪温度计与最优标的</p>
             </div>
           </div>
-          <button @click="showHistoryModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+          <button ref="historyCloseButton" @click="closeHistoryModal" aria-label="关闭历史档案"
+            class="shrink-0 w-11 h-11 sm:w-auto sm:h-auto text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
             ✕
           </button>
         </div>
 
         <!-- 模态框内容列表 -->
-        <div class="p-5 overflow-y-auto space-y-3.5 divide-y divide-slate-100 dark:divide-slate-800/60">
+        <div class="p-4 sm:p-5 overflow-y-auto space-y-3.5 divide-y divide-slate-100 dark:divide-slate-800/60">
           <div v-if="historyList.length === 0" class="text-center py-10 text-slate-400 text-xs">
             暂无历史归档记录（将在下一个工作日 15:02 自动打卡）
           </div>
           <div v-for="item in historyList" :key="item.date" class="pt-3.5 first:pt-0">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div class="flex items-center gap-2">
                 <span class="font-mono font-bold text-sm text-slate-900 dark:text-white">{{ item.date }}</span>
                 <span class="text-[11px] text-slate-400">({{ item.archive_time ? item.archive_time.split(' ')[1] : '已收盘' }})</span>
               </div>
-              <div class="flex items-center gap-2 text-xs font-mono">
+              <div class="grid grid-cols-2 sm:flex sm:items-center gap-2 text-xs font-mono">
                 <span v-if="item.macro?.nasdaq_avg_premium !== undefined" class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                   纳指均溢: <b class="text-emerald-600 dark:text-emerald-400">+{{ item.macro.nasdaq_avg_premium }}%</b>
                 </span>
@@ -646,12 +750,12 @@
         </div>
 
         <!-- 模态框底部操作栏 -->
-        <div class="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between">
+        <div class="px-4 sm:px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between gap-3">
           <a href="/api/history/download" download="crossetf_history_daily.json"
             class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-1.5 shadow-2xs">
             <span>📥</span> 导出原始 JSON 数据
           </a>
-          <button @click="showHistoryModal = false" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:opacity-90 transition-opacity cursor-pointer">
+          <button @click="closeHistoryModal" class="min-h-11 sm:min-h-0 px-4 py-1.5 text-xs font-medium rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:opacity-90 transition-opacity cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
             关闭
           </button>
         </div>
@@ -667,7 +771,7 @@
   </div>
 
   <script>
-    const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+    const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = Vue;
 
     createApp({
       setup() {
@@ -729,12 +833,14 @@
         });
 
         // 系统版本号
-        const appVersion = ref('v1.3.0');
+        const appVersion = ref('v1.4.0');
 
         // 每日收盘历史归档相关状态
         const showHistoryModal = ref(false);
         const historyList = ref([]);
         const historyTotalDays = ref(0);
+        const historyCloseButton = ref(null);
+        let historyTriggerElement = null;
 
         const fetchHistoryData = async () => {
           try {
@@ -751,8 +857,21 @@
         };
 
         const openHistoryModal = () => {
+          historyTriggerElement = document.activeElement;
           fetchHistoryData();
           showHistoryModal.value = true;
+          document.body.style.overflow = 'hidden';
+          nextTick(() => historyCloseButton.value?.focus());
+        };
+
+        const closeHistoryModal = () => {
+          showHistoryModal.value = false;
+          document.body.style.overflow = '';
+          nextTick(() => historyTriggerElement?.focus?.());
+        };
+
+        const onHistoryKeydown = (event) => {
+          if (event.key === 'Escape' && showHistoryModal.value) closeHistoryModal();
         };
 
         const registryInfo = ref({});
@@ -762,6 +881,16 @@
 
         // 分类 Tab：'nasdaq' (纳斯达克100) 或 'sp500' (标普500)
         const activeTab = ref('nasdaq');
+        const expandedEtfCode = ref(null);
+
+        const selectTab = (tab) => {
+          activeTab.value = tab;
+          expandedEtfCode.value = null;
+        };
+
+        const toggleEtfDetails = (code) => {
+          expandedEtfCode.value = expandedEtfCode.value === code ? null : code;
+        };
 
         // 当前 Tab 对应的数据列表
         const activeTabList = computed(() => activeTab.value === 'nasdaq' ? nasdaq100List.value : sp500List.value);
@@ -821,6 +950,10 @@
               nasdaq100List.value = res.nasdaq100_etfs || [];
               sectorList.value = res.sector_etfs || res.nasdaq_tech_etfs || [];
               sp500List.value = res.sp500_etfs || [];
+              if (expandedEtfCode.value) {
+                const allEtfs = [...nasdaq100List.value, ...sectorList.value, ...sp500List.value];
+                if (!allEtfs.some(item => item.code === expandedEtfCode.value)) expandedEtfCode.value = null;
+              }
               if (res.version) appVersion.value = res.version;
               registryInfo.value = res.registry_info || {};
               lastUpdated.value = res.timestamp || new Date().toLocaleTimeString();
@@ -1082,9 +1215,14 @@
           applyTheme(isDarkMode.value);
           fetchData(true);
           startTimers();
+          document.addEventListener('keydown', onHistoryKeydown);
         });
 
-        onUnmounted(() => stopTimers());
+        onUnmounted(() => {
+          stopTimers();
+          document.removeEventListener('keydown', onHistoryKeydown);
+          document.body.style.overflow = '';
+        });
 
         return {
           loading,
@@ -1100,6 +1238,9 @@
           isDarkMode,
           toggleTheme,
           activeTab,
+          expandedEtfCode,
+          selectTab,
+          toggleEtfDetails,
           activeTabList,
           activeAvgPremium,
           activeScaleFactor,
@@ -1132,7 +1273,9 @@
           showHistoryModal,
           historyList,
           historyTotalDays,
+          historyCloseButton,
           openHistoryModal,
+          closeHistoryModal,
           formatNumber,
           formatPercentSign,
           getPriceChangeClass,

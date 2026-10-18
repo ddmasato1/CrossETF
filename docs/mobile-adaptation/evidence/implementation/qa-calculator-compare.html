@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>价差金额排版 QA 对照</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px; background: #e2e8f0; color: #0f172a; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 980px; margin: 0 auto; }
+    section { background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 16px; box-shadow: 0 8px 24px rgb(15 23 42 / 8%); }
+    h2 { margin: 0 0 12px; font-size: 16px; }
+    img { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid #e2e8f0; }
+    .note { margin: 10px 0 0; color: #475569; }
+    @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section>
+      <h2>修改前：金额单位被挤到下一行</h2>
+      <img src="../price-layout-before.png" alt="修改前价差金额换行截图">
+      <p class="note">问题区域：标签与金额同行竞争宽度，“元”单独换行。</p>
+    </section>
+    <section>
+      <h2>修改后：标签与数值分层，金额保持完整</h2>
+      <img src="10-calculator-amount-320.jpg" alt="修改后 320 像素手机端价差金额布局">
+      <p class="note">320px 视口：两项指标等宽排列，金额“≈ 137.00 元”不换行。</p>
+    </section>
+  </main>
+</body>
+</html>

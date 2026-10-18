@@ -10,7 +10,7 @@
 
 - **项目名称**：`CrossETF`（曾用名 NasDashboard，已正式更名）。
   - *命名内涵*：**Cross** 代表“立足境内 A 股、追踪跨境（Cross-Border）美股”，**绝非 NAS 网络存储主机**！
-- **当前最新版本**：`v1.3.0`（Git 分支 `main`）。
+- **当前最新版本**：`v1.4.0`（Git 分支 `main`，发布标签 `v1.4.0`）。
 - **远程仓库**：[https://github.com/ddmasato1/CrossETF](https://github.com/ddmasato1/CrossETF)
 - **核心定位**：极简、高信噪比的 A 股跨境 ETF 实时折溢价量化监控与收盘档案沉淀服务。专为云主机与本地 7×24 小时常驻运行打造。
 
@@ -42,13 +42,15 @@
   - **前端**：单页面响应式（Vue 3 CDN + Tailwind CSS CDN），无打包编译环节，开箱即用。
   - **数据存储**：全部持久化文件统一收敛于 **`data/`** 目录。
 - **关键文件清单**：
-  - [`server.py`](file:///Users/aiden/Documents/CrossETF/server.py)：服务端主程序。内置标的动态发现、行情聚合、`/api/history` 查询与后台自主采集守护线程 `daily_collector_daemon`。
-  - [`static/index.html`](file:///Users/aiden/Documents/CrossETF/static/index.html)：单页面前端。集成实时表格、换仓测算器、版本徽章及每日收盘历史感知抽屉。
-  - [`data/`](file:///Users/aiden/Documents/CrossETF/data)：**核心持久化数据目录**。
+  - [`server.py`](server.py)：服务端主程序。内置标的动态发现、行情聚合、`/api/history` 查询与后台自主采集守护线程 `daily_collector_daemon`。
+  - [`static/index.html`](static/index.html)：单页面前端。集成响应式 ETF 卡片/桌面表格、换仓测算器、版本徽章及每日收盘历史感知弹窗。
+  - [`data/`](data/)：**核心持久化数据目录**。
     - `data/nasdaq_symbols_cache.json`：天天基金动态探测出的标的池本地缓存。
     - `data/history_daily.json`：每日 15:00 收盘后沉淀的全市场宏观中枢与 18 只 ETF 量价档案。
-  - [`docker-compose.yml`](file:///Users/aiden/Documents/CrossETF/docker-compose.yml)：容器部署编排，挂载 `./data:/app/data`，端口 `8000:8000`。
-  - [`test_review_criteria.py`](file:///Users/aiden/Documents/CrossETF/test_review_criteria.py)：7 项核心验收与幂等性回归单元测试套件。
+  - [`docker-compose.yml`](docker-compose.yml)：容器部署编排，挂载 `./data:/app/data`，端口 `8000:8000`。
+  - [`test_review_criteria.py`](test_review_criteria.py)：8 项核心验收、幂等性与移动端静态结构回归测试套件。
+  - [`docs/mobile-adaptation/`](docs/mobile-adaptation/)：本轮移动端需求分析、讨论记录、最终方案、Demo 和视觉证据。
+  - [`design-qa.md`](design-qa.md)：正式实现的 Design QA 总报告；交接前必须保持 `final result: passed`。
 
 ---
 
@@ -66,6 +68,18 @@
    - 所有持久化数据统一收敛至 `data/` 目录并直接纳入 Git 跟踪。根目录下不再保留重复的 JSON 文件，杜绝双份维护隐患。Docker 镜像构建与本地运行一律以 `data/` 为唯一源头。
 4. **沙箱与外网访问**：
    - 在本助手的终端沙箱中，直接网络调用（拉取行情、`git push`）需按规则使用 `BypassSandbox: true`。
+5. **移动端响应式展示原则**：
+   - `<640px` 使用手机卡片，默认只展示代码/简称、实时溢价率、涨跌幅和现价；点击单条后行内展开完整数据，同时最多展开一条。
+   - `>=640px` 保留完整桌面表格。两种视图共享同一份 Vue 数据与计算逻辑，不复制业务口径；切换指数 Tab 时清空展开状态。
+   - 手机端主要交互控件必须保持至少 44px 触控高度；长简称与跟踪指数允许自然换行，禁止用截断隐藏关键信息。
+   - 价差测算结果在手机端使用两列指标块，标签与数值分层，金额值使用不换行约束；两个标的选择框使用系统无衬线字体、14px、500 字重，不再使用 `font-mono`。
+6. **移动端交互状态与无障碍约束**：
+   - ETF 卡片通过 `expandedEtfCode` 保存唯一展开项；切换 Tab 或刷新后标的消失时必须清空。
+   - 卡片使用原生 `button` 与 `aria-expanded`/`aria-controls`；分类使用 `tablist`/`tab`/`aria-selected`。
+   - 历史弹窗必须保留 dialog 语义、背景滚动锁定、点击遮罩和 `Esc` 关闭、关闭后焦点恢复。
+7. **移动端文档协作流程**：
+   - 需求与方案统一放在 `docs/mobile-adaptation/`，顺序为“需求分析 → 讨论记录 → 最终方案 → 实施 → Design QA”。不要把中间讨论过程堆入 README。
+   - README 只保留稳定的用户能力和使用说明；CHANGELOG 记录版本变化；handover 记录跨 Agent 必须继承的架构约束、当前工作区状态和验证结果。
 
 ---
 
@@ -87,7 +101,7 @@
 # 本地测试启动
 python3 server.py
 
-# 运行全面回归单元测试套件（7项全通）
+# 运行全面回归单元测试套件（8项全通）
 python3 test_review_criteria.py
 
 # Docker 生产部署
@@ -107,12 +121,33 @@ gh repo view
 
 ## 7. 当前状态与演进记录 (Status & Changelog)
 
-- **当前版本**：`v1.3.0`
-- **最新 Commit**：[`28dbb30`](https://github.com/ddmasato1/CrossETF/commit/28dbb30) (`fix: calibrate expense ratios and enforce single source of truth in data directory`)
+- **当前版本/发布标签**：`v1.4.0`
+- **发布基线前一 Commit**：[`1805bfb`](https://github.com/ddmasato1/CrossETF/commit/1805bfb)；最新发布提交请以 `git log -1 --oneline` 或 `git show v1.4.0` 为准，避免在提交内容中维护无法自引用的哈希。
 - **近期规划事项**：
   - [x] 券商官方 IOPV 口径对齐与全标的覆盖
   - [x] 每日收盘宏观与个券数据自动静默沉淀
   - [x] 后台自主采集守护线程与前端历史抽屉
   - [x] 独立 `data/` 目录隔离与 Docker 原子挂载改造
   - [x] 综合运营费率校准（对齐 1.00% 梯队）与单一数据源彻底收敛
+  - [x] 手机端响应式卡片适配（四项核心数据默认展示、单条行内详情、历史弹窗与触控优化）
   - [ ] 后续：云主机生产部署上线，以及基于 `history_daily.json` 的极简历史均溢趋势线探索
+
+### v1.4.0 发布记录（2026-10-18）
+
+本轮移动端适配已实现、完成本地验收，并以 `v1.4.0` 发布：
+
+- `static/index.html`：新增 `<640px` 手机卡片视图、单条行内详情、响应式 header/宏观指标/Tab、历史弹窗交互与价差测算器排版优化；桌面表格继续保留。
+- `test_review_criteria.py`：回归测试从 7 项扩展为 8 项，增加移动端静态结构检查。
+- `README.md`、`CHANGELOG.md`、`handover.md`：同步稳定能力、未发布变更和跨 Agent 约束。
+- `docs/mobile-adaptation/`、`design-qa.md`：完整需求、方案、Demo、截图证据和 QA 报告。
+- `data/nasdaq_symbols_cache.json`：进入本轮前已经处于修改状态，属于运行数据/用户工作区内容，未纳入 `v1.4.0` 发布提交；后续 Agent 不得擅自覆盖或回退。
+
+已完成验证：
+
+- `python3 test_review_criteria.py`：8/8 通过。
+- `git diff --check`：通过。
+- 响应式视口：320×568、375×667、390×844、430×932、768×1024。
+- 深色/浅色、卡片默认/展开、单一展开、Tab 清理、历史弹窗、价差金额不换行、测算选择框字体均已浏览器复验。
+- 浏览器仅存在项目原有的 Tailwind CDN 生产环境提示，无运行错误。
+
+下一位 Agent 开始工作前应先执行 `git status --short`，阅读本节与 `design-qa.md`，并保留未提交的运行数据改动；除非用户明确要求，不得提交、推送或回退。

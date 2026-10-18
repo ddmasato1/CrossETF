@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CrossETF 移动端列表 Demo</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #070d1b;
+      --surface: #0d1628;
+      --surface-2: #111c31;
+      --line: #20304a;
+      --muted: #8190aa;
+      --text: #eef4ff;
+      --green: #4adea0;
+      --green-deep: #163e35;
+      --red: #fb7185;
+      --amber: #fbbf24;
+      --blue: #7dd3fc;
+      --purple: #c4b5fd;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--page);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button { font: inherit; }
+
+    .app {
+      width: min(100%, 430px);
+      margin: 0 auto;
+      padding: 16px 12px 36px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 10px;
+    }
+
+    .brand img {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+    }
+
+    .brand-title {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .version {
+      flex: none;
+      padding: 5px 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: #aab7ca;
+      font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .statusbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .status {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      color: #cbd5e1;
+      font-size: 12px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .status.live {
+      color: var(--green);
+      border-color: #25634f;
+      background: #0c2926;
+    }
+
+    .macro-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .macro-card {
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+
+    .macro-label {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .macro-value {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px;
+      margin-top: 7px;
+    }
+
+    .macro-value strong {
+      font: 800 17px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .positive { color: var(--red); }
+    .negative { color: var(--green); }
+    .premium { color: var(--amber); }
+
+    .macro-change {
+      font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: nowrap;
+    }
+
+    .section {
+      margin-top: 18px;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .tab {
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      color: #afbdd0;
+      font-size: 13px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .tab[aria-selected="true"] {
+      border-color: #2fa875;
+      background: #16865d;
+      color: white;
+    }
+
+    .list-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 14px 2px 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .list-heading strong {
+      color: #d5deeb;
+      font-size: 12px;
+    }
+
+    .etf-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .etf-card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--surface);
+    }
+
+    .etf-summary {
+      width: 100%;
+      min-height: 78px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(70px, .85fr) minmax(54px, .7fr) minmax(48px, .62fr);
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .etf-summary:hover { background: var(--surface-2); }
+
+    .etf-summary:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: -2px;
+    }
+
+    .identity { min-width: 0; }
+
+    .code {
+      font: 800 16px/1.15 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .02em;
+    }
+
+    .name {
+      overflow: hidden;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .metric { text-align: right; }
+
+    .metric-label {
+      color: #687892;
+      font-size: 10px;
+      line-height: 1;
+    }
+
+    .metric-value {
+      margin-top: 7px;
+      font: 800 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: nowrap;
+    }
+
+    .metric-value.premium-pill {
+      display: inline-block;
+      padding: 6px 7px;
+      border: 1px solid #8a6221;
+      border-radius: 7px;
+      background: #3a2c1a;
+      color: #ffd166;
+    }
+
+    .details {
+      display: none;
+      padding: 0 12px 12px;
+    }
+
+    .etf-card.open .details { display: block; }
+
+    .detail-panel {
+      padding: 12px;
+      border: 1px solid #263956;
+      border-radius: 10px;
+      background: #091222;
+    }
+
+    .detail-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+      color: #dce6f4;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .detail-action {
+      color: var(--green);
+      font-size: 12px;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 13px 18px;
+      margin: 12px 0 0;
+    }
+
+    .detail-grid div { min-width: 0; }
+
+    .detail-grid dt {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .detail-grid dd {
+      overflow: hidden;
+      margin: 5px 0 0;
+      color: #e5edf8;
+      font: 700 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .advice {
+      margin-top: 12px;
+      padding: 10px 11px;
+      border: 1px solid #785a21;
+      border-radius: 9px;
+      background: #2b2416;
+      color: #f8d477;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .hint {
+      margin: 13px 0 0;
+      color: #60708a;
+      font-size: 11px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    @media (max-width: 340px) {
+      .app { padding-inline: 10px; }
+      .etf-summary {
+        grid-template-columns: minmax(0, 1.35fr) minmax(64px, .8fr) minmax(51px, .62fr) minmax(44px, .55fr);
+        gap: 5px;
+        padding-inline: 10px;
+      }
+      .code { font-size: 15px; }
+      .metric-value { font-size: 11px; }
+      .metric-value.premium-pill { padding-inline: 5px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="topbar">
+        <div class="brand">
+          <img src="favicon.png" alt="CrossETF">
+          <div>
+            <h1 class="brand-title">CrossETF</h1>
+            <div class="brand-subtitle">跨境 ETF 实时溢价</div>
+          </div>
+        </div>
+        <span class="version">DEMO</span>
+      </div>
+
+      <div class="statusbar" aria-label="系统状态">
+        <div class="status">历史归档 1 天</div>
+        <div class="status live">行情在线最新</div>
+      </div>
+    </header>
+
+    <section class="macro-grid" aria-label="宏观指标">
+      <article class="macro-card">
+        <div class="macro-label">CME 纳指期货</div>
+        <div class="macro-value"><strong>29377.78</strong><span class="macro-change negative">-2.54%</span></div>
+      </article>
+      <article class="macro-card">
+        <div class="macro-label">CME 标普期货</div>
+        <div class="macro-value"><strong>7700.30</strong><span class="macro-change negative">-1.16%</span></div>
+      </article>
+      <article class="macro-card">
+        <div class="macro-label">离岸汇率 USD/CNH</div>
+        <div class="macro-value"><strong>6.6850</strong><span class="macro-change">0.00%</span></div>
+      </article>
+      <article class="macro-card">
+        <div class="macro-label">纳指 100 均溢价</div>
+        <div class="macro-value"><strong class="premium">+13.52%</strong><span class="macro-change">12 只</span></div>
+      </article>
+    </section>
+
+    <section class="section" aria-labelledby="etf-list-title">
+      <div class="tabs" role="tablist" aria-label="ETF 分类">
+        <button class="tab" type="button" role="tab" aria-selected="true" data-tab="nasdaq">纳斯达克 100（4）</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" data-tab="sp500">标普 500（2）</button>
+      </div>
+
+      <div class="list-heading">
+        <strong id="etf-list-title">按实时溢价率升序</strong>
+        <span>点击单条查看完整数据</span>
+      </div>
+
+      <div class="etf-list" id="etf-list"></div>
+      <p class="hint">讨论用静态原型 · 默认层仅保留代码/简称、溢价率、涨跌幅和现价</p>
+    </section>
+  </main>
+
+  <script>
+    const datasets = {
+      nasdaq: [
+        { code: '513390', name: '纳指100ETF博时', premium: '+10.92%', change: '+0.56%', price: '2.497', fee: '0.65%', iopv: '2.2512', nav: '2.2431', amount: '8.46 亿', market: 'SH', index: '纳斯达克 100', advice: '高危：当前溢价处于 10% 以上区间，避免追高。' },
+        { code: '159513', name: '纳斯达克100ETF大成', premium: '+10.93%', change: '+0.82%', price: '1.854', fee: '1.00%', iopv: '1.6713', nav: '1.6648', amount: '5.21 亿', market: 'SZ', index: '纳斯达克 100', advice: '高危：关注溢价收敛风险与盘口流动性。' },
+        { code: '513110', name: '纳指ETF华泰柏瑞', premium: '+10.95%', change: '+0.83%', price: '2.555', fee: '1.00%', iopv: '2.3028', nav: '2.2942', amount: '4.09 亿', market: 'SH', index: '纳斯达克 100', advice: '高危：当前价格明显高于 IOPV，仅作风险提示。' },
+        { code: '159632', name: '纳斯达克ETF华安', premium: '+11.50%', change: '+1.03%', price: '2.541', fee: '0.80%', iopv: '2.2790', nav: '2.2716', amount: '3.37 亿', market: 'SZ', index: '纳斯达克 100', advice: '高危：溢价超过 10%，谨慎参与场内交易。' }
+      ],
+      sp500: [
+        { code: '159655', name: '标普500ETF华夏', premium: '+7.11%', change: '+0.44%', price: '1.602', fee: '0.75%', iopv: '1.4957', nav: '1.4918', amount: '2.78 亿', market: 'SZ', index: '标普 500', advice: '偏高：建议结合交易成本和溢价回落风险判断。' },
+        { code: '513500', name: '标普500ETF博时', premium: '+7.68%', change: '+0.62%', price: '2.116', fee: '0.80%', iopv: '1.9651', nav: '1.9597', amount: '6.12 亿', market: 'SH', index: '标普 500', advice: '偏高：当前溢价高于温和区间，避免盲目追价。' }
+      ]
+    };
+
+    const list = document.querySelector('#etf-list');
+    let activeTab = 'nasdaq';
+
+    function cardTemplate(item) {
+      return `
+        <article class="etf-card">
+          <button class="etf-summary" type="button" aria-expanded="false">
+            <span class="identity">
+              <span class="code">${item.code}</span>
+              <span class="name">${item.name}</span>
+            </span>
+            <span class="metric">
+              <span class="metric-label">实时溢价</span>
+              <span class="metric-value premium-pill">${item.premium}</span>
+            </span>
+            <span class="metric">
+              <span class="metric-label">涨跌幅</span>
+              <span class="metric-value positive">${item.change}</span>
+            </span>
+            <span class="metric">
+              <span class="metric-label">现价</span>
+              <span class="metric-value">${item.price}</span>
+            </span>
+          </button>
+          <div class="details">
+            <div class="detail-panel">
+              <div class="detail-title"><span>完整数据</span><span class="detail-action">点击上方收起</span></div>
+              <dl class="detail-grid">
+                <div><dt>综合费率</dt><dd>${item.fee}</dd></div>
+                <div><dt>实时估值 IOPV</dt><dd>${item.iopv}</dd></div>
+                <div><dt>公布净值</dt><dd>${item.nav}</dd></div>
+                <div><dt>成交额</dt><dd>${item.amount}</dd></div>
+                <div><dt>市场</dt><dd>${item.market}</dd></div>
+                <div><dt>跟踪指数</dt><dd>${item.index}</dd></div>
+              </dl>
+              <div class="advice">${item.advice}</div>
+            </div>
+          </div>
+        </article>`;
+    }
+
+    function render() {
+      list.innerHTML = datasets[activeTab].map(cardTemplate).join('');
+      list.querySelectorAll('.etf-summary').forEach((button) => {
+        button.addEventListener('click', () => {
+          const card = button.closest('.etf-card');
+          const willOpen = !card.classList.contains('open');
+          list.querySelectorAll('.etf-card.open').forEach((openCard) => {
+            openCard.classList.remove('open');
+            openCard.querySelector('.etf-summary').setAttribute('aria-expanded', 'false');
+          });
+          card.classList.toggle('open', willOpen);
+          button.setAttribute('aria-expanded', String(willOpen));
+        });
+      });
+    }
+
+    document.querySelectorAll('.tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        activeTab = tab.dataset.tab;
+        document.querySelectorAll('.tab').forEach((item) => item.setAttribute('aria-selected', String(item === tab)));
+        render();
+      });
+    });
+
+    render();
+  </script>
+</body>
+</html>
