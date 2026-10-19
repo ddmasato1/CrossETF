@@ -22,3 +22,7 @@ venv/
 # Docker local logs/scratch
 *.log
 scratch/
+
+# Runtime caches
+data/fear_greed_cache.json
+data/fear_greed_cache.json.tmp

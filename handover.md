@@ -10,7 +10,7 @@
 
 - **项目名称**：`CrossETF`（曾用名 NasDashboard，已正式更名）。
   - *命名内涵*：**Cross** 代表“立足境内 A 股、追踪跨境（Cross-Border）美股”，**绝非 NAS 网络存储主机**！
-- **当前最新版本**：`v1.4.0`（Git 分支 `main`，发布标签 `v1.4.0`）。
+- **当前代码版本**：`v1.5.0`（分支 `main`）；最新 Git 标签仍为 `v1.4.0`，是否创建新标签需由用户另行明确。
 - **远程仓库**：[https://github.com/ddmasato1/CrossETF](https://github.com/ddmasato1/CrossETF)
 - **核心定位**：极简、高信噪比的 A 股跨境 ETF 实时折溢价量化监控与收盘档案沉淀服务。专为云主机与本地 7×24 小时常驻运行打造。
 
@@ -48,9 +48,10 @@
     - `data/nasdaq_symbols_cache.json`：天天基金动态探测出的标的池本地缓存。
     - `data/history_daily.json`：每日 15:00 收盘后沉淀的全市场宏观中枢与 18 只 ETF 量价档案。
   - [`docker-compose.yml`](docker-compose.yml)：容器部署编排，挂载 `./data:/app/data`，端口 `8000:8000`。
-  - [`test_review_criteria.py`](test_review_criteria.py)：8 项核心验收、幂等性与移动端静态结构回归测试套件。
+  - [`test_review_criteria.py`](test_review_criteria.py)：9 项核心验收、幂等性、移动端结构及情绪缓存回归测试套件。
   - [`docs/mobile-adaptation/`](docs/mobile-adaptation/)：本轮移动端需求分析、讨论记录、最终方案、Demo 和视觉证据。
   - [`design-qa.md`](design-qa.md)：正式实现的 Design QA 总报告；交接前必须保持 `final result: passed`。
+  - [`docs/cnn-fear-greed/`](docs/cnn-fear-greed/)：恐惧贪婪指数的需求、讨论、最终方案、Demo、正式实现证据与专项 QA。
 
 ---
 
@@ -80,6 +81,11 @@
 7. **移动端文档协作流程**：
    - 需求与方案统一放在 `docs/mobile-adaptation/`，顺序为“需求分析 → 讨论记录 → 最终方案 → 实施 → Design QA”。不要把中间讨论过程堆入 README。
    - README 只保留稳定的用户能力和使用说明；CHANGELOG 记录版本变化；handover 记录跨 Agent 必须继承的架构约束、当前工作区状态和验证结果。
+8. **恐惧贪婪指数必须与 ETF 完全隔离**：
+   - 独立路由为 `/api/fear-greed`，主源是 `https://feargreedflow.com/api/fear-greed`；不得从 `/api/quotes` 调用，也不得写入 `history_daily.json`。
+   - 成功缓存 60 分钟；到期抓取失败时继续返回 `data/fear_greed_cache.json` 的最后有效数据并标记 `stale: true`，失败后 10 分钟内不重复请求上游。
+   - 持久化缓存是可再生成的运行数据，已加入 `.gitignore`；首次无缓存且上游失败时返回 HTTP 503，前端不得把缺失值显示成 0 分。
+   - 情绪模块只用于观察市场温度，不参与 ETF 估值、溢价、排序、评级、换仓测算或历史归档。
 
 ---
 
@@ -101,7 +107,7 @@
 # 本地测试启动
 python3 server.py
 
-# 运行全面回归单元测试套件（8项全通）
+# 运行全面回归单元测试套件（9项全通）
 python3 test_review_criteria.py
 
 # Docker 生产部署
@@ -119,35 +125,14 @@ gh repo view
 
 ---
 
-## 7. 当前状态与演进记录 (Status & Changelog)
+## 7. 当前交接状态 (Current Handoff State)
 
-- **当前版本/发布标签**：`v1.4.0`
-- **发布基线前一 Commit**：[`1805bfb`](https://github.com/ddmasato1/CrossETF/commit/1805bfb)；最新发布提交请以 `git log -1 --oneline` 或 `git show v1.4.0` 为准，避免在提交内容中维护无法自引用的哈希。
-- **近期规划事项**：
-  - [x] 券商官方 IOPV 口径对齐与全标的覆盖
-  - [x] 每日收盘宏观与个券数据自动静默沉淀
-  - [x] 后台自主采集守护线程与前端历史抽屉
-  - [x] 独立 `data/` 目录隔离与 Docker 原子挂载改造
-  - [x] 综合运营费率校准（对齐 1.00% 梯队）与单一数据源彻底收敛
-  - [x] 手机端响应式卡片适配（四项核心数据默认展示、单条行内详情、历史弹窗与触控优化）
-  - [ ] 后续：云主机生产部署上线，以及基于 `history_daily.json` 的极简历史均溢趋势线探索
+- **代码基线**：`v1.5.0`，分支 `main`。接手时以 `git log -1 --oneline` 与 `git status --short` 为准，不在文档中固化当前提交哈希。
+- **本轮已完成**：独立恐惧贪婪指数模块，包括 `/api/fear-greed`、当前温度、五段色温、最近 30 个自然日趋势、60 分钟缓存、10 分钟失败节流、持久化旧数据降级及移动端双栏布局。
+- **隔离边界**：该模块不得影响 `/api/quotes`、ETF 估值/排序/评级/价差测算或 `history_daily.json`；后续改动需继续保留此边界。
+- **验证基线**：`python3 test_review_criteria.py` 为 9/9 通过；`git diff --check` 通过；桌面/390×844、深浅主题、提示交互和 Canvas 高度稳定已复验。专项证据见 `docs/cnn-fear-greed/design-qa.md`。
+- **运行数据**：`data/fear_greed_cache.json` 为可再生成且被忽略的缓存；`data/nasdaq_symbols_cache.json` 可能因本地启动自动刷新。接手 Agent 不得在未确认的情况下覆盖、回退或混入功能提交。
+- **已知非阻塞项**：浏览器控制台仍有项目原有的 Tailwind CDN 生产提示；尚未进行实体 iOS/Android 字体缩放验收。
+- **后续候选方向**：云主机生产部署；基于 `history_daily.json` 的极简历史均溢趋势线。两项均未获本轮实施授权。
 
-### v1.4.0 发布记录（2026-10-18）
-
-本轮移动端适配已实现、完成本地验收，并以 `v1.4.0` 发布：
-
-- `static/index.html`：新增 `<640px` 手机卡片视图、单条行内详情、响应式 header/宏观指标/Tab、历史弹窗交互与价差测算器排版优化；桌面表格继续保留。
-- `test_review_criteria.py`：回归测试从 7 项扩展为 8 项，增加移动端静态结构检查。
-- `README.md`、`CHANGELOG.md`、`handover.md`：同步稳定能力、未发布变更和跨 Agent 约束。
-- `docs/mobile-adaptation/`、`design-qa.md`：完整需求、方案、Demo、截图证据和 QA 报告。
-- `data/nasdaq_symbols_cache.json`：进入本轮前已经处于修改状态，属于运行数据/用户工作区内容，未纳入 `v1.4.0` 发布提交；后续 Agent 不得擅自覆盖或回退。
-
-已完成验证：
-
-- `python3 test_review_criteria.py`：8/8 通过。
-- `git diff --check`：通过。
-- 响应式视口：320×568、375×667、390×844、430×932、768×1024。
-- 深色/浅色、卡片默认/展开、单一展开、Tab 清理、历史弹窗、价差金额不换行、测算选择框字体均已浏览器复验。
-- 浏览器仅存在项目原有的 Tailwind CDN 生产环境提示，无运行错误。
-
-下一位 Agent 开始工作前应先执行 `git status --short`，阅读本节与 `design-qa.md`，并保留未提交的运行数据改动；除非用户明确要求，不得提交、推送或回退。
+下一位 Agent 开始工作前应先检查工作区状态、阅读 `design-qa.md` 与相关专项文档；除非用户明确要求，不得提交、推送、打标签或回退运行数据。

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-NasDashboard 核心逻辑与验收测试脚本
+CrossETF 核心逻辑与验收测试脚本
 覆盖验收项：
 1. 路由解析：带参数与不带参数
 2. 合法 0.0% 溢价保留
@@ -12,6 +12,7 @@ NasDashboard 核心逻辑与验收测试脚本
 7. 排序沉底（升序沉底、降序沉底）
 8. 全无效时均值与极值输出 None
 9. 移动端核心卡片与桌面表格并存
+10. 恐惧贪婪指数解析、缓存降级、并发与接口隔离
 """
 
 import os
@@ -19,12 +20,16 @@ import sys
 import json
 import math
 import urllib.parse
+import inspect
+import tempfile
+import threading
+import time
 import server
 from server import DashboardHandler
 
 def run_tests():
     print("=" * 60)
-    print("🚀 开始执行 NasDashboard 全面验收测试")
+    print("🚀 开始执行 CrossETF 全面验收测试")
     print("=" * 60)
 
     # -------------------------------------------------------------
@@ -35,6 +40,7 @@ def run_tests():
         ("/api/refresh-symbols?t=1792138900", "/api/refresh-symbols"),
         ("/api/quotes", "/api/quotes"),
         ("/api/quotes?_=123456&t=999", "/api/quotes"),
+        ("/api/fear-greed?t=1792138900", "/api/fear-greed"),
         ("/health?check=1", "/health"),
         ("/favicon.png?v=2", "/favicon.png"),
         ("/index.html?from=desktop", "/index.html"),
@@ -222,8 +228,123 @@ def run_tests():
     assert ':aria-expanded="showKnowledge"' in index_html, "风控折叠区必须暴露展开状态"
     print("✅ 测试 8 通过: 手机核心卡片、行内详情与桌面表格响应式结构并存")
 
+    # -------------------------------------------------------------
+    # 测试 9: 恐惧贪婪指数标准化、缓存状态机、并发与隔离
+    # -------------------------------------------------------------
+    rating_cases = [
+        (24.9, "extreme_fear"), (25, "fear"), (44.9, "fear"),
+        (45, "neutral"), (54.9, "neutral"), (55, "greed"),
+        (74.9, "greed"), (75, "extreme_greed"), (100, "extreme_greed"),
+    ]
+    for score, expected in rating_cases:
+        assert server.classify_fear_greed(score)[0] == expected, f"情绪边界错误: {score}"
+
+    normalized = server.normalize_fear_greed_payload({
+        "dates": ["2026-09-01", "invalid", "2026-09-18", "2026-10-16"],
+        "values": [60, 30, 46.24, 17.86],
+        "asOf": "2026-10-16T23:59:49+00:00",
+    })
+    assert normalized["score"] == 17.9 and normalized["rating"] == "extreme_fear"
+    assert [point["date"] for point in normalized["history"]] == ["2026-09-18", "2026-10-16"], "必须按最新数据日截取30个自然日"
+    assert normalized["as_of"] == "2026-10-16T23:59:49+00:00"
+
+    try:
+        server.normalize_fear_greed_payload({"dates": ["2026-10-16"], "values": []})
+        raise AssertionError("长度不一致必须抛出异常")
+    except ValueError:
+        pass
+
+    original_cache_file = server.FEAR_GREED_CACHE_FILE
+    original_fetch = server.fetch_fear_greed_upstream
+    sample_raw = {
+        "dates": ["2026-10-15", "2026-10-16"],
+        "values": [21.2, 17.9],
+        "asOf": "2026-10-16T23:59:49+00:00",
+    }
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            server.FEAR_GREED_CACHE_FILE = os.path.join(temp_dir, "fear_greed_cache.json")
+            calls = {"count": 0, "fail": False}
+
+            def mock_fetch():
+                calls["count"] += 1
+                if calls["fail"]:
+                    raise RuntimeError("mock upstream unavailable")
+                return sample_raw
+
+            server.fetch_fear_greed_upstream = mock_fetch
+            server.reset_fear_greed_runtime_cache()
+
+            status, first = server.get_fear_greed_data(now=1000)
+            assert status == 200 and first["data"]["status"] == "fresh"
+            assert calls["count"] == 1 and os.path.exists(server.FEAR_GREED_CACHE_FILE)
+
+            status, cached = server.get_fear_greed_data(now=1100)
+            assert status == 200 and cached["data"]["stale"] is False
+            assert calls["count"] == 1, "60分钟内不得重复抓取"
+
+            calls["fail"] = True
+            status, stale = server.get_fear_greed_data(now=4601)
+            assert status == 200 and stale["data"]["stale"] is True
+            assert stale["data"]["score"] == 17.9 and calls["count"] == 2
+
+            status, throttled = server.get_fear_greed_data(now=4700)
+            assert status == 200 and throttled["data"]["status"] == "stale"
+            assert calls["count"] == 2, "失败后10分钟内不得重复抓取"
+
+            # 模拟服务重启：从持久化文件恢复最后有效值，在线仍失败时继续降级。
+            server.reset_fear_greed_runtime_cache()
+            status, restored = server.get_fear_greed_data(now=5200)
+            assert status == 200 and restored["data"]["stale"] is True
+            assert restored["data"]["score"] == 17.9
+
+            # 冷启动既无缓存又抓取失败，必须返回 503，不能伪造 0 分。
+            os.remove(server.FEAR_GREED_CACHE_FILE)
+            server.reset_fear_greed_runtime_cache()
+            status, unavailable = server.get_fear_greed_data(now=6000)
+            assert status == 503 and unavailable["data"]["valid"] is False
+            assert "score" not in unavailable["data"]
+
+            # 并发到期请求只能触发一次真实上游抓取。
+            calls.update({"count": 0, "fail": False})
+            server.reset_fear_greed_runtime_cache()
+
+            def slow_fetch():
+                calls["count"] += 1
+                time.sleep(0.03)
+                return sample_raw
+
+            server.fetch_fear_greed_upstream = slow_fetch
+            results = []
+            threads = [threading.Thread(target=lambda: results.append(server.get_fear_greed_data(now=7000))) for _ in range(5)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+            assert calls["count"] == 1, f"并发请求不应重复抓取，实际 {calls['count']} 次"
+            assert all(status_code == 200 for status_code, _ in results)
+
+        market_source = inspect.getsource(server.get_market_data)
+        assert "get_fear_greed_data" not in market_source and "FEAR_GREED" not in market_source, "/api/quotes 行情函数不得依赖情绪模块"
+    finally:
+        server.FEAR_GREED_CACHE_FILE = original_cache_file
+        server.fetch_fear_greed_upstream = original_fetch
+        server.reset_fear_greed_runtime_cache()
+
+    required_fear_greed_markers = [
+        'data-fear-greed-card',
+        "fetch('/api/fear-greed?t='",
+        'fearGreedTimer = setInterval(fetchFearGreed, 60 * 60 * 1000)',
+        'fear-greed-canvas-wrap',
+        '缓存数据',
+        '情绪数据暂不可用',
+    ]
+    for marker in required_fear_greed_markers:
+        assert marker in index_html, f"正式情绪模块缺少关键标记: {marker}"
+    print("✅ 测试 9 通过: 恐惧贪婪指数解析、缓存降级、并发与 ETF 接口隔离")
+
     print("=" * 60)
-    print("🎉 全部 8 项核心业务与响应式结构测试 100% 验证通过！")
+    print("🎉 全部 9 项核心业务、情绪缓存与响应式结构测试 100% 验证通过！")
     print("=" * 60)
 
 if __name__ == "__main__":

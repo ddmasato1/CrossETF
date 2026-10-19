@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CrossETF · 恐惧贪婪指数 Demo</title>
+  <link rel="icon" type="image/png" href="../../static/favicon.png">
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f1f5f9;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --line: #dbe3ee;
+      --text: #0f172a;
+      --muted: #64748b;
+      --subtle: #94a3b8;
+      --green: #059669;
+      --green-soft: #d1fae5;
+      --red: #e11d48;
+      --amber: #d97706;
+      --amber-soft: #fef3c7;
+      --fear: #ef4444;
+      --extreme-fear: #be123c;
+      --neutral: #94a3b8;
+      --greed: #22c55e;
+      --extreme-greed: #047857;
+      --chart-grid: #e2e8f0;
+      --shadow: 0 1px 2px rgba(15, 23, 42, .05);
+    }
+
+    html.dark {
+      color-scheme: dark;
+      --page: #070d1b;
+      --surface: #0d1628;
+      --surface-soft: #111c31;
+      --line: #20304a;
+      --text: #eef4ff;
+      --muted: #8190aa;
+      --subtle: #60708b;
+      --green: #4adea0;
+      --green-soft: #0c2926;
+      --red: #fb7185;
+      --amber: #fbbf24;
+      --amber-soft: #33250d;
+      --fear: #fb7185;
+      --extreme-fear: #fb7185;
+      --neutral: #94a3b8;
+      --greed: #4ade80;
+      --extreme-greed: #34d399;
+      --chart-grid: #20304a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .22);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--page);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color .2s ease, color .2s ease;
+    }
+
+    button { font: inherit; }
+
+    .app {
+      width: min(100%, 1180px);
+      margin: 0 auto;
+      padding: 16px 18px 48px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand-wrap { min-width: 0; }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand img {
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      object-fit: cover;
+    }
+
+    .brand-name {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -.025em;
+    }
+
+    .brand-desc {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .badge {
+      padding: 5px 8px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--surface-soft);
+      color: var(--muted);
+      font: 750 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .04em;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0 0 44px;
+    }
+
+    .status-pill {
+      padding: 5px 10px;
+      border: 1px solid #2f6e5e;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control {
+      min-height: 34px;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+    }
+
+    .control:hover { background: var(--surface-soft); }
+
+    .control:focus-visible,
+    .tab:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: 2px;
+    }
+
+    .control.primary {
+      border-color: #16845f;
+      background: #16966c;
+      color: white;
+    }
+
+    .macro-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .macro-card,
+    .sentiment-card,
+    .etf-card {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .macro-card {
+      min-width: 0;
+      padding: 12px;
+      border-radius: 11px;
+    }
+
+    .macro-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .macro-time {
+      color: var(--subtle);
+      font: 500 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .macro-body {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .macro-value {
+      font: 800 18px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .macro-change {
+      font: 750 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .negative { color: var(--green); }
+    .positive { color: var(--red); }
+    .premium { color: var(--amber); }
+
+    .sentiment-card {
+      display: grid;
+      grid-template-columns: 176px minmax(0, 1fr);
+      gap: 18px;
+      margin-top: 10px;
+      padding: 18px;
+      border-radius: 14px;
+    }
+
+    .sentiment-summary {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-width: 0;
+    }
+
+    .eyebrow {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .score-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: min(100%, 160px);
+      margin-top: 8px;
+    }
+
+    .score {
+      color: var(--extreme-fear);
+      font: 900 48px/.95 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: -.06em;
+    }
+
+    .rating {
+      position: relative;
+      padding: 5px 8px;
+      border: 1px solid color-mix(in srgb, var(--extreme-fear) 45%, transparent);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--extreme-fear) 12%, transparent);
+      color: var(--extreme-fear);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      cursor: help;
+    }
+
+    .rating:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: 2px;
+    }
+
+    .rating-tooltip {
+      position: absolute;
+      z-index: 6;
+      top: calc(100% + 9px);
+      left: 0;
+      width: min(320px, calc(100vw - 48px));
+      padding: 10px 11px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--surface-soft);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.55;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, .22);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity .14s ease, transform .14s ease;
+      visibility: hidden;
+      white-space: normal;
+    }
+
+    .rating-tooltip strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--extreme-fear);
+      font-weight: 850;
+    }
+
+    .rating:hover .rating-tooltip,
+    .rating:focus .rating-tooltip {
+      opacity: 1;
+      transform: translateY(0);
+      visibility: visible;
+    }
+
+    .updated {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .temperature {
+      width: min(100%, 160px);
+      margin-top: 15px;
+    }
+
+    .temperature-track {
+      position: relative;
+      display: grid;
+      grid-template-columns: 25fr 20fr 10fr 20fr 25fr;
+      align-items: center;
+      gap: 3px;
+      height: 24px;
+      cursor: crosshair;
+    }
+
+    .temperature-track span {
+      height: 7px;
+      border-radius: 999px;
+    }
+    .temperature-track span:nth-child(1) { background: #be123c; }
+    .temperature-track span:nth-child(2) { background: #f97316; }
+    .temperature-track span:nth-child(3) { background: #94a3b8; }
+    .temperature-track span:nth-child(4) { background: #84cc16; }
+    .temperature-track span:nth-child(5) { background: #059669; }
+
+    .temperature-marker {
+      position: absolute;
+      top: 4px;
+      left: 18%;
+      width: 3px;
+      height: 17px;
+      border: 2px solid var(--surface);
+      border-radius: 999px;
+      background: var(--text);
+      box-shadow: 0 0 0 1px var(--text);
+      transform: translateX(-50%);
+    }
+
+    .temperature-tooltip {
+      position: absolute;
+      z-index: 4;
+      bottom: 25px;
+      left: 18%;
+      display: none;
+      min-width: max-content;
+      padding: 6px 8px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--surface-soft);
+      color: var(--text);
+      font-size: 10px;
+      font-weight: 750;
+      line-height: 1;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, .18);
+      pointer-events: none;
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+
+    .temperature-tooltip.is-visible { display: block; }
+
+    .temperature-track:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+
+    .temperature-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 7px;
+      color: var(--subtle);
+      font-size: 9px;
+    }
+
+    .chart-panel {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      align-self: stretch;
+      min-width: 0;
+      min-height: 150px;
+      padding: 0;
+    }
+
+    .chart-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .chart-title {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .chart-caption {
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      min-height: 126px;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .chart-tooltip {
+      position: absolute;
+      z-index: 3;
+      display: none;
+      min-width: 92px;
+      padding: 7px 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface-soft);
+      color: var(--text);
+      font-size: 10px;
+      line-height: 1.45;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, .16);
+      pointer-events: none;
+    }
+
+    .section {
+      margin-top: 22px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+    }
+
+    .tab {
+      min-height: 36px;
+      padding: 7px 14px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .tab[aria-selected="true"] {
+      border-color: #16845f;
+      background: #16966c;
+      color: white;
+    }
+
+    .sort-note {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .etf-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .etf-card {
+      display: grid;
+      grid-template-columns: 1.4fr repeat(3, minmax(64px, .65fr));
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      padding: 15px;
+      border-radius: 12px;
+    }
+
+    .etf-code {
+      font: 850 16px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .etf-name {
+      overflow: hidden;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .metric { text-align: right; }
+
+    .metric-label {
+      color: var(--subtle);
+      font-size: 9px;
+    }
+
+    .metric-value {
+      margin-top: 6px;
+      color: var(--text);
+      font: 750 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .metric-value.hot { color: var(--amber); }
+    .metric-value.up { color: var(--red); }
+
+    .demo-note {
+      margin-top: 18px;
+      padding: 12px 14px;
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 820px) {
+      .sentiment-card {
+        grid-template-columns: 176px minmax(0, 1fr);
+      }
+
+      .etf-list { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .app { padding: 14px 12px 34px; }
+
+      .topbar {
+        display: block;
+      }
+
+      .brand-desc { display: none; }
+
+      .status-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        margin: 12px 0 0;
+      }
+
+      .status-pill {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        margin-top: 10px;
+      }
+
+      .control { min-height: 44px; }
+      .control:first-child { grid-column: 1 / -1; }
+
+      .macro-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .macro-card { padding: 11px; }
+      .macro-time { display: none; }
+      .macro-value { font-size: 16px; }
+
+      .sentiment-card {
+        grid-template-columns: 160px minmax(0, 1fr);
+        gap: 12px;
+        padding: 14px;
+      }
+
+      .sentiment-summary {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px 18px;
+      }
+
+      .temperature {
+        grid-column: auto;
+        margin-top: 2px;
+      }
+
+      .score { font-size: 46px; }
+      .updated { margin-top: 7px; }
+      .chart-panel { min-height: 132px; }
+      .chart-head {
+        gap: 6px;
+        margin-bottom: 4px;
+      }
+      .chart-title {
+        font-size: 10px;
+        white-space: nowrap;
+      }
+      .chart-caption { display: none; }
+      .canvas-wrap {
+        height: auto;
+        min-height: 112px;
+      }
+
+      .section-head {
+        display: block;
+      }
+
+      .tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .tab { min-height: 44px; }
+      .sort-note { margin-top: 9px; }
+
+      .etf-card {
+        grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(50px, .65fr));
+        gap: 7px;
+        padding: 13px 11px;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .brand-name { font-size: 18px; }
+      .badge { padding-inline: 6px; }
+      .macro-label { font-size: 10px; }
+      .macro-value { font-size: 14px; }
+      .macro-change { font-size: 10px; }
+      .sentiment-card {
+        grid-template-columns: 124px minmax(0, 1fr);
+        gap: 10px;
+        padding: 12px;
+      }
+      .sentiment-summary { grid-template-columns: 1fr; }
+      .score-line {
+        gap: 6px;
+        width: 124px;
+      }
+      .score { font-size: 40px; }
+      .rating {
+        padding: 4px 6px;
+        font-size: 10px;
+      }
+      .updated { font-size: 9px; }
+      .temperature {
+        grid-column: auto;
+        width: 124px;
+      }
+      .chart-title { font-size: 9px; }
+      .chart-panel { min-height: 124px; }
+      .canvas-wrap {
+        height: auto;
+        min-height: 104px;
+      }
+      .etf-card { grid-template-columns: 1fr 1fr 1fr; }
+      .etf-card .identity { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand-wrap">
+        <div class="brand">
+          <img src="../../static/favicon.png" alt="CrossETF">
+          <span class="brand-name">CrossETF</span>
+          <span class="brand-desc">跨境ETF实时溢价</span>
+          <span class="badge">CNN DEMO</span>
+        </div>
+        <div class="status-row">
+          <span class="status-pill">行情在线最新</span>
+          <span class="status-pill">情绪数据有效</span>
+        </div>
+      </div>
+
+      <div class="controls" aria-label="页面控制">
+        <button class="control" type="button">刷新：手动</button>
+        <button id="themeButton" class="control" type="button">切换明暗主题</button>
+        <button class="control primary" type="button">刷新</button>
+      </div>
+    </header>
+
+    <section class="macro-grid" aria-label="宏观行情">
+      <article class="macro-card">
+        <div class="macro-head"><span class="macro-label">CME 纳指期货 (NQ)</span><span class="macro-time">09:42</span></div>
+        <div class="macro-body"><strong class="macro-value">29377.78</strong><span class="macro-change negative">-2.54%</span></div>
+      </article>
+      <article class="macro-card">
+        <div class="macro-head"><span class="macro-label">CME 标普期货 (ES)</span><span class="macro-time">09:42</span></div>
+        <div class="macro-body"><strong class="macro-value">7700.30</strong><span class="macro-change negative">-1.16%</span></div>
+      </article>
+      <article class="macro-card">
+        <div class="macro-head"><span class="macro-label">离岸汇率 (USD/CNH)</span><span class="macro-time">09:42</span></div>
+        <div class="macro-body"><strong class="macro-value">6.6850</strong><span class="macro-change">0.00%</span></div>
+      </article>
+      <article class="macro-card">
+        <div class="macro-head"><span class="macro-label">纳指100均溢价</span><span class="macro-time">12只样本</span></div>
+        <div class="macro-body"><strong class="macro-value premium">+13.52%</strong><span class="macro-change">×0.9746</span></div>
+      </article>
+    </section>
+
+    <section class="sentiment-card" aria-labelledby="sentimentTitle">
+      <div class="sentiment-summary">
+        <div>
+          <div id="sentimentTitle" class="eyebrow">恐惧贪婪指数</div>
+          <div class="score-line">
+            <strong class="score">18</strong>
+            <span class="rating" tabindex="0">极度恐惧
+              <span class="rating-tooltip" role="tooltip">
+                <strong>投资者明显更谨慎</strong>
+                当前市场更偏向避险：买入和追涨意愿变弱，卖出压力可能增大；但不等于所有投资者都在不计成本抛售，也不代表市场已经见底。
+              </span>
+            </span>
+          </div>
+          <div class="updated">最近更新：10月16日 19:59 ET</div>
+        </div>
+
+        <div class="temperature" aria-label="市场情绪温度：18分，极度恐惧">
+          <div id="temperatureTrack" class="temperature-track" tabindex="0" role="img" aria-label="恐惧贪婪指数色温区间，当前18分；移动鼠标可查看0到100对应数值">
+            <span></span><span></span><span></span><span></span><span></span>
+            <i class="temperature-marker"></i>
+            <div id="temperatureTooltip" class="temperature-tooltip" role="tooltip"></div>
+          </div>
+          <div class="temperature-labels"><span>0 极度恐惧</span><span>100 极度贪婪</span></div>
+        </div>
+      </div>
+
+      <div class="chart-panel">
+        <div class="chart-head">
+          <span class="chart-title">最近30日情绪走势</span>
+          <span class="chart-caption">日级数据 · 0—100</span>
+        </div>
+        <div id="canvasWrap" class="canvas-wrap">
+          <canvas id="sentimentChart" role="img" aria-label="最近30日CNN恐惧与贪婪指数由46下降到18，整体明显转冷"></canvas>
+          <div id="chartTooltip" class="chart-tooltip"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="section" aria-label="ETF示例列表">
+      <div class="section-head">
+        <div class="tabs" role="tablist" aria-label="ETF分类">
+          <button class="tab" role="tab" aria-selected="true" data-tab="nasdaq">纳斯达克100 (12)</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="sp500">标普500 (4)</button>
+        </div>
+        <span class="sort-note">按溢价率升序</span>
+      </div>
+
+      <div id="etfList" class="etf-list"></div>
+    </section>
+
+    <div class="demo-note">
+      设计取舍：CNN情绪模块独立占一整行，不挤压现有四张宏观卡；当天分数是视觉焦点，30日趋势只帮助判断情绪方向，不展示七项组成或多组历史对比值。
+    </div>
+  </main>
+
+  <script>
+    const sentimentData = [
+      46, 48, 44, 47, 51, 49, 45, 43, 41, 39,
+      42, 38, 36, 34, 37, 35, 31, 33, 30, 28,
+      32, 29, 27, 25, 24, 27, 23, 22, 20, 18
+    ];
+
+    const dateLabels = Array.from({ length: 30 }, (_, index) => {
+      const day = new Date(2026, 8, 17 + index);
+      return `${day.getMonth() + 1}月${day.getDate()}日`;
+    });
+
+    const etfs = {
+      nasdaq: [
+        { code: '513390', name: '纳指100ETF博时', premium: '+10.92%', change: '+0.56%', price: '2.497' },
+        { code: '159513', name: '纳斯达克100ETF大成', premium: '+10.93%', change: '+0.82%', price: '1.854' },
+        { code: '513110', name: '纳指ETF华泰柏瑞', premium: '+11.08%', change: '+0.64%', price: '1.928' },
+        { code: '159632', name: '纳斯达克ETF华安', premium: '+11.26%', change: '+0.77%', price: '1.642' }
+      ],
+      sp500: [
+        { code: '513500', name: '标普500ETF博时', premium: '+4.82%', change: '+0.31%', price: '2.106' },
+        { code: '159612', name: '标普500ETF国泰', premium: '+4.97%', change: '+0.45%', price: '1.735' },
+        { code: '159655', name: '标普500ETF华夏', premium: '+5.14%', change: '+0.38%', price: '1.608' },
+        { code: '513650', name: '标普500ETF南方', premium: '+5.28%', change: '+0.42%', price: '1.522' }
+      ]
+    };
+
+    const html = document.documentElement;
+    const themeButton = document.getElementById('themeButton');
+    const savedTheme = localStorage.getItem('nas_theme');
+    html.classList.toggle('dark', savedTheme !== 'light');
+
+    themeButton.addEventListener('click', () => {
+      html.classList.toggle('dark');
+      localStorage.setItem('nas_theme', html.classList.contains('dark') ? 'dark' : 'light');
+      drawChart();
+    });
+
+    const canvas = document.getElementById('sentimentChart');
+    const canvasWrap = document.getElementById('canvasWrap');
+    const tooltip = document.getElementById('chartTooltip');
+    const temperatureTrack = document.getElementById('temperatureTrack');
+    const temperatureTooltip = document.getElementById('temperatureTooltip');
+    let chartPoints = [];
+
+    function sentimentBand(value) {
+      if (value < 25) return '极度恐惧';
+      if (value < 45) return '恐惧';
+      if (value < 55) return '中性';
+      if (value < 75) return '贪婪';
+      return '极度贪婪';
+    }
+
+    function showTemperatureValue(value) {
+      const safeValue = Math.max(0, Math.min(100, Math.round(value)));
+      temperatureTooltip.textContent = `${safeValue} · ${sentimentBand(safeValue)}`;
+      temperatureTooltip.style.left = `${safeValue}%`;
+      temperatureTooltip.style.transform = safeValue < 12
+        ? 'translateX(0)'
+        : safeValue > 88
+          ? 'translateX(-100%)'
+          : 'translateX(-50%)';
+      temperatureTooltip.classList.add('is-visible');
+    }
+
+    temperatureTrack.addEventListener('pointermove', event => {
+      const rect = temperatureTrack.getBoundingClientRect();
+      showTemperatureValue(((event.clientX - rect.left) / rect.width) * 100);
+    });
+
+    temperatureTrack.addEventListener('pointerleave', () => {
+      if (document.activeElement !== temperatureTrack) {
+        temperatureTooltip.classList.remove('is-visible');
+      }
+    });
+
+    temperatureTrack.addEventListener('keydown', () => showTemperatureValue(18));
+    temperatureTrack.addEventListener('blur', () => temperatureTooltip.classList.remove('is-visible'));
+
+    function chartColors() {
+      const styles = getComputedStyle(document.documentElement);
+      return {
+        grid: styles.getPropertyValue('--chart-grid').trim(),
+        line: styles.getPropertyValue('--extreme-fear').trim(),
+        text: styles.getPropertyValue('--subtle').trim(),
+        surface: styles.getPropertyValue('--surface').trim()
+      };
+    }
+
+    function drawChart() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.round(rect.width * dpr));
+      canvas.height = Math.max(1, Math.round(rect.height * dpr));
+
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      const colors = chartColors();
+      const pad = { top: 9, right: 8, bottom: 21, left: 28 };
+      const width = rect.width - pad.left - pad.right;
+      const height = rect.height - pad.top - pad.bottom;
+      const minY = 0;
+      const maxY = 60;
+
+      ctx.lineWidth = 1;
+      ctx.font = '9px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+
+      [0, 25, 50].forEach(value => {
+        const y = pad.top + height - ((value - minY) / (maxY - minY)) * height;
+        ctx.strokeStyle = colors.grid;
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(rect.width - pad.right, y);
+        ctx.stroke();
+        ctx.fillStyle = colors.text;
+        ctx.fillText(String(value), pad.left - 7, y);
+      });
+
+      chartPoints = sentimentData.map((value, index) => ({
+        x: pad.left + (index / (sentimentData.length - 1)) * width,
+        y: pad.top + height - ((value - minY) / (maxY - minY)) * height,
+        value,
+        label: dateLabels[index]
+      }));
+
+      ctx.strokeStyle = colors.line;
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      chartPoints.forEach((point, index) => {
+        if (index === 0) ctx.moveTo(point.x, point.y);
+        else ctx.lineTo(point.x, point.y);
+      });
+      ctx.stroke();
+
+      const last = chartPoints[chartPoints.length - 1];
+      ctx.fillStyle = colors.surface;
+      ctx.beginPath();
+      ctx.arc(last.x, last.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = colors.line;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.fillStyle = colors.text;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('30天前', pad.left, rect.height - 2);
+      ctx.textAlign = 'right';
+      ctx.fillText('现在', rect.width - pad.right, rect.height - 2);
+    }
+
+    function nearestPoint(clientX) {
+      const rect = canvas.getBoundingClientRect();
+      const localX = clientX - rect.left;
+      return chartPoints.reduce((best, point) =>
+        Math.abs(point.x - localX) < Math.abs(best.x - localX) ? point : best
+      );
+    }
+
+    canvas.addEventListener('pointermove', event => {
+      if (!chartPoints.length) return;
+      const point = nearestPoint(event.clientX);
+      tooltip.style.display = 'block';
+      tooltip.innerHTML = `<strong>${point.value}</strong> · ${point.label}`;
+      const maxLeft = canvasWrap.clientWidth - tooltip.offsetWidth - 4;
+      tooltip.style.left = `${Math.max(4, Math.min(maxLeft, point.x + 8))}px`;
+      tooltip.style.top = `${Math.max(2, point.y - 38)}px`;
+    });
+
+    canvas.addEventListener('pointerleave', () => {
+      tooltip.style.display = 'none';
+    });
+
+    function renderEtfs(tabName) {
+      const list = document.getElementById('etfList');
+      list.innerHTML = etfs[tabName].map(item => `
+        <article class="etf-card">
+          <div class="identity">
+            <div class="etf-code">${item.code}</div>
+            <div class="etf-name">${item.name}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">实时溢价</div>
+            <div class="metric-value hot">${item.premium}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">涨跌幅</div>
+            <div class="metric-value up">${item.change}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">现价</div>
+            <div class="metric-value">${item.price}</div>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(item => item.setAttribute('aria-selected', 'false'));
+        tab.setAttribute('aria-selected', 'true');
+        renderEtfs(tab.dataset.tab);
+      });
+    });
+
+    renderEtfs('nasdaq');
+    requestAnimationFrame(drawChart);
+    window.addEventListener('resize', drawChart);
+  </script>
+</body>
+</html>

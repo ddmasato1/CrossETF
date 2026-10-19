@@ -17,17 +17,23 @@ import os
 import sys
 import re
 import threading
+from datetime import datetime, timedelta
 
 # 基础配置
-APP_VERSION = "v1.4.0"
+APP_VERSION = "v1.5.0"
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
+FEAR_GREED_URL = "https://feargreedflow.com/api/fear-greed"
+FEAR_GREED_CACHE_TTL = 3600
+FEAR_GREED_RETRY_TTL = 600
+FEAR_GREED_TIMEOUT = 8
 
 # 缓存与数据文件路径
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.abspath(os.environ.get("DATA_DIR", os.path.join(CURRENT_DIR, "data")))
 SYMBOLS_CACHE_FILE = os.path.join(DATA_DIR, "nasdaq_symbols_cache.json")
 HISTORY_FILE = os.path.join(DATA_DIR, "history_daily.json")
+FEAR_GREED_CACHE_FILE = os.path.join(DATA_DIR, "fear_greed_cache.json")
 
 
 def ensure_data_storage():
@@ -110,6 +116,17 @@ cache_data = {
     "payload": None
 }
 
+# 恐惧贪婪指数使用完全独立的低频缓存与刷新锁，不参与 ETF 行情链路。
+fear_greed_cache = {
+    "initialized": False,
+    "payload": None,
+    "last_success_epoch": 0.0,
+    "last_success_at": "",
+    "last_attempt_epoch": 0.0,
+    "last_error": "",
+}
+fear_greed_lock = threading.Lock()
+
 # 标的池内存缓存
 symbols_registry = {
     "status": "uninitialized",
@@ -142,6 +159,256 @@ def fetch_url(url, referer=None, timeout=4):
     except Exception as e:
         print(f"[Warning] Fetching {url}: {e}", file=sys.stderr)
         return ""
+
+
+def classify_fear_greed(score):
+    """将 0～100 分数映射为唯一、无重叠的市场情绪等级。"""
+    if score < 25:
+        return "extreme_fear", "极度恐惧"
+    if score < 45:
+        return "fear", "恐惧"
+    if score < 55:
+        return "neutral", "中性"
+    if score < 75:
+        return "greed", "贪婪"
+    return "extreme_greed", "极度贪婪"
+
+
+def _parse_iso_datetime(value):
+    """验证 ISO 时间；返回原值，避免把上游时间伪装成本地当前时间。"""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    candidate = value.strip()
+    try:
+        datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+        return candidate
+    except ValueError:
+        return None
+
+
+def normalize_fear_greed_payload(raw):
+    """校验 FearGreedFlow 响应并转换为 CrossETF 的稳定数据结构。"""
+    if not isinstance(raw, dict):
+        raise ValueError("upstream payload must be an object")
+
+    dates = raw.get("dates")
+    values = raw.get("values")
+    if not isinstance(dates, list) or not isinstance(values, list):
+        raise ValueError("dates and values must be arrays")
+    if not dates or len(dates) != len(values):
+        raise ValueError("dates and values must be non-empty and have equal length")
+
+    points_by_date = {}
+    for raw_date, raw_value in zip(dates, values):
+        try:
+            parsed_date = datetime.strptime(str(raw_date), "%Y-%m-%d").date()
+            if isinstance(raw_value, bool):
+                raise ValueError("boolean is not a score")
+            score = float(raw_value)
+            if not math.isfinite(score) or score < 0 or score > 100:
+                raise ValueError("score is outside 0-100")
+        except (TypeError, ValueError):
+            continue
+        points_by_date[parsed_date] = score
+
+    if not points_by_date:
+        raise ValueError("upstream payload has no valid data points")
+
+    ordered_points = sorted(points_by_date.items())
+    latest_date, latest_score = ordered_points[-1]
+    cutoff = latest_date - timedelta(days=29)
+    history = [
+        {"date": point_date.isoformat(), "value": round(point_value, 1)}
+        for point_date, point_value in ordered_points
+        if point_date >= cutoff
+    ]
+
+    rating, rating_label = classify_fear_greed(latest_score)
+    as_of = _parse_iso_datetime(raw.get("asOf")) or latest_date.isoformat()
+    return {
+        "source": "feargreedflow",
+        "score": round(latest_score, 1),
+        "rating": rating,
+        "rating_label": rating_label,
+        "as_of": as_of,
+        "history": history,
+    }
+
+
+def _valid_cached_fear_greed(payload):
+    """对持久化的标准化数据做最小但严格的结构校验。"""
+    if not isinstance(payload, dict) or payload.get("source") != "feargreedflow":
+        return False
+    score = payload.get("score")
+    if isinstance(score, bool) or not isinstance(score, (int, float)):
+        return False
+    if not math.isfinite(score) or score < 0 or score > 100:
+        return False
+    rating, label = classify_fear_greed(score)
+    if payload.get("rating") != rating or payload.get("rating_label") != label:
+        return False
+    if not payload.get("as_of") or not isinstance(payload.get("history"), list) or not payload["history"]:
+        return False
+    try:
+        for point in payload["history"]:
+            datetime.strptime(point["date"], "%Y-%m-%d")
+            value = float(point["value"])
+            if not math.isfinite(value) or value < 0 or value > 100:
+                return False
+    except (KeyError, TypeError, ValueError):
+        return False
+    return True
+
+
+def load_fear_greed_cache():
+    """读取最后有效持久化缓存；损坏文件会被忽略，不影响服务启动。"""
+    if not os.path.exists(FEAR_GREED_CACHE_FILE):
+        return None
+    try:
+        with open(FEAR_GREED_CACHE_FILE, "r", encoding="utf-8") as cache_file:
+            saved = json.load(cache_file)
+        payload = saved.get("payload")
+        if not _valid_cached_fear_greed(payload):
+            raise ValueError("invalid cached payload")
+        success_epoch = float(saved.get("last_success_epoch") or os.path.getmtime(FEAR_GREED_CACHE_FILE))
+        success_at = saved.get("last_success_at") or datetime.fromtimestamp(success_epoch).astimezone().isoformat(timespec="seconds")
+        return {
+            "payload": payload,
+            "last_success_epoch": success_epoch,
+            "last_success_at": success_at,
+        }
+    except Exception as exc:
+        print(f"[Warning] 读取恐惧贪婪指数缓存失败: {exc}", file=sys.stderr)
+        return None
+
+
+def save_fear_greed_cache(payload, last_success_epoch, last_success_at):
+    """以临时文件 + 原子替换方式保存最后有效数据。"""
+    ensure_data_storage()
+    temp_file = FEAR_GREED_CACHE_FILE + ".tmp"
+    saved = {
+        "schema_version": 1,
+        "last_success_epoch": last_success_epoch,
+        "last_success_at": last_success_at,
+        "payload": payload,
+    }
+    try:
+        with open(temp_file, "w", encoding="utf-8") as cache_file:
+            json.dump(saved, cache_file, ensure_ascii=False, indent=2)
+            cache_file.flush()
+            os.fsync(cache_file.fileno())
+        os.replace(temp_file, FEAR_GREED_CACHE_FILE)
+    except Exception:
+        try:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+        except OSError:
+            pass
+        raise
+
+
+def fetch_fear_greed_upstream():
+    """获取并解码在线情绪数据；失败时抛出异常交给缓存状态机处理。"""
+    last_error = None
+    attempt_timeout = max(2.0, FEAR_GREED_TIMEOUT / 3.0)
+    for _ in range(3):
+        request = urllib.request.Request(
+            FEAR_GREED_URL,
+            headers={
+                "Accept": "application/json",
+                "Accept-Encoding": "identity",
+                "Connection": "close",
+                "User-Agent": f"CrossETF/{APP_VERSION}",
+            },
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=attempt_timeout) as response:
+                if response.status != 200:
+                    raise RuntimeError(f"upstream HTTP {response.status}")
+                return json.loads(response.read().decode("utf-8"))
+        except Exception as exc:
+            last_error = exc
+    raise last_error or RuntimeError("upstream request failed")
+
+
+def _fear_greed_api_payload(status, stale):
+    payload = dict(fear_greed_cache["payload"])
+    payload.update({
+        "valid": True,
+        "status": status,
+        "stale": stale,
+        "last_success_at": fear_greed_cache["last_success_at"],
+    })
+    return {"code": 200, "message": "success", "data": payload}
+
+
+def _fear_greed_unavailable_payload():
+    return {
+        "code": 503,
+        "message": "fear and greed data unavailable",
+        "data": {
+            "valid": False,
+            "status": "unavailable",
+            "stale": False,
+            "source": "feargreedflow",
+        },
+    }
+
+
+def reset_fear_greed_runtime_cache():
+    """清空情绪内存状态，供测试与受控重载使用。"""
+    fear_greed_cache.update({
+        "initialized": False,
+        "payload": None,
+        "last_success_epoch": 0.0,
+        "last_success_at": "",
+        "last_attempt_epoch": 0.0,
+        "last_error": "",
+    })
+
+
+def get_fear_greed_data(now=None):
+    """执行独立的成功缓存、失败重试与最后有效数据降级状态机。"""
+    now = time.time() if now is None else float(now)
+    with fear_greed_lock:
+        if not fear_greed_cache["initialized"]:
+            saved = load_fear_greed_cache()
+            if saved:
+                fear_greed_cache.update(saved)
+            fear_greed_cache["initialized"] = True
+
+        payload = fear_greed_cache["payload"]
+        success_age = now - fear_greed_cache["last_success_epoch"]
+        if payload and 0 <= success_age < FEAR_GREED_CACHE_TTL:
+            return 200, _fear_greed_api_payload("fresh", False)
+
+        attempt_age = now - fear_greed_cache["last_attempt_epoch"]
+        if fear_greed_cache["last_attempt_epoch"] and 0 <= attempt_age < FEAR_GREED_RETRY_TTL:
+            if payload:
+                return 200, _fear_greed_api_payload("stale", True)
+            return 503, _fear_greed_unavailable_payload()
+
+        fear_greed_cache["last_attempt_epoch"] = now
+        try:
+            normalized = normalize_fear_greed_payload(fetch_fear_greed_upstream())
+            success_at = datetime.fromtimestamp(now).astimezone().isoformat(timespec="seconds")
+            fear_greed_cache.update({
+                "payload": normalized,
+                "last_success_epoch": now,
+                "last_success_at": success_at,
+                "last_error": "",
+            })
+            try:
+                save_fear_greed_cache(normalized, now, success_at)
+            except Exception as persist_error:
+                print(f"[Warning] 保存恐惧贪婪指数缓存失败: {persist_error}", file=sys.stderr)
+            return 200, _fear_greed_api_payload("fresh", False)
+        except Exception as exc:
+            fear_greed_cache["last_error"] = str(exc)
+            print(f"[Warning] 恐惧贪婪指数刷新失败: {exc}", file=sys.stderr)
+            if fear_greed_cache["payload"]:
+                return 200, _fear_greed_api_payload("stale", True)
+            return 503, _fear_greed_unavailable_payload()
 
 
 def discover_etfs_online(force=False):
@@ -897,6 +1164,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(content)
             return
 
+        # 路由 1.1: 独立的恐惧贪婪指数接口
+        if req_path in ["/api/fear-greed", "/api/fear-greed/"]:
+            status_code, data = get_fear_greed_data()
+            content = json.dumps(data, ensure_ascii=False).encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
         # 路由 2: 手动强制在线重新拉取标的池
         if req_path in ["/api/refresh-symbols", "/api/refresh-symbols/"]:
             cache_data["payload"] = None
@@ -1077,6 +1357,7 @@ def run_server():
     print(f"🚀 CrossETF 跨境ETF实时溢价追踪服务已启动！[{APP_VERSION}]")
     print(f"👉 本地访问地址: http://127.0.0.1:{PORT}")
     print(f"👉 实时行情 API: http://127.0.0.1:{PORT}/api/quotes")
+    print(f"👉 市场情绪 API: http://127.0.0.1:{PORT}/api/fear-greed")
     print(f"👉 历史归档 API: http://127.0.0.1:{PORT}/api/history")
     print(f"👉 标的同步 API: http://127.0.0.1:{PORT}/api/refresh-symbols")
     print("💡 按 Ctrl+C 可停止服务")

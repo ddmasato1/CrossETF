@@ -4,7 +4,8 @@ WORKDIR /app
 
 # 设置时区为亚洲/上海，保证行情刷新时间戳与北京时间一致
 ENV TZ=Asia/Shanghai
-RUN apk add --no-cache tzdata && \
+RUN apk add --no-cache tzdata ca-certificates && \
+    update-ca-certificates && \
     cp /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone
 

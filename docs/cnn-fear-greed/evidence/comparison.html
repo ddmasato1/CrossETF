@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CNN Demo Design QA Comparison</title>
+  <style>
+    body { margin: 0; padding: 24px; background: #050914; color: #e2e8f0; font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    h1 { margin: 0 0 18px; font-size: 20px; }
+    h2 { margin: 0 0 10px; color: #94a3b8; font-size: 13px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+    .panel { min-width: 0; padding: 12px; border: 1px solid #26354d; border-radius: 12px; background: #0b1323; }
+    img { width: 100%; max-height: 620px; display: block; object-fit: contain; object-position: top; border-radius: 8px; background: #070d1b; }
+    .live-panel { display: grid; place-items: center; }
+    .phone { width: 390px; max-width: 100%; height: 844px; border: 1px solid #334155; border-radius: 18px; background: #070d1b; }
+    @media (max-width: 800px) { .row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>CrossETF CNN 情绪模块 · 视觉对比</h1>
+  <div class="row">
+    <section class="panel"><h2>现有页面视觉基准</h2><img src="03-source-desktop-dark.png" alt="现有CrossETF桌面页面"></section>
+    <section class="panel"><h2>CNN Demo 桌面实现</h2><img src="04-demo-desktop-dark.png" alt="CNN Demo桌面页面"></section>
+  </div>
+  <div class="row">
+    <section class="panel"><h2>现有页面响应式基准</h2><img src="01-source-mobile-dark.png" alt="现有CrossETF响应式页面"></section>
+    <section class="panel"><h2>CNN Demo 390px初版（修订前）</h2><img src="02-demo-mobile-dark.png" alt="CNN Demo手机页面初版"></section>
+  </div>
+  <section class="panel live-panel">
+    <h2>修订后实时 390 × 844 验收框</h2>
+    <iframe class="phone" src="../demo.html" title="CNN Demo 390px实时预览"></iframe>
+  </section>
+</body>
+</html>

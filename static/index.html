@@ -38,6 +38,270 @@
   <style>
     [v-cloak] { display: none; }
     .font-tabular { font-variant-numeric: tabular-nums; }
+
+    .fear-greed-card {
+      display: grid;
+      grid-template-columns: 176px minmax(0, 1fr);
+      gap: 18px;
+      margin-top: 10px;
+      padding: 18px;
+      border: 1px solid rgb(226 232 240 / .9);
+      border-radius: 14px;
+      background: white;
+      box-shadow: 0 1px 2px rgb(15 23 42 / .05);
+    }
+    .dark .fear-greed-card {
+      border-color: rgb(30 41 59 / .8);
+      background: rgb(15 23 42);
+    }
+    .fear-greed-summary {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-width: 0;
+    }
+    .fear-greed-eyebrow {
+      color: rgb(100 116 139);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .06em;
+    }
+    .dark .fear-greed-eyebrow { color: rgb(148 163 184); }
+    .fear-greed-score-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: min(100%, 160px);
+      margin-top: 8px;
+    }
+    .fear-greed-score {
+      font: 900 48px/.95 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: -.06em;
+    }
+    .fear-greed-tone-extreme-fear { color: #fb7185; }
+    .fear-greed-tone-fear { color: #f97316; }
+    .fear-greed-tone-neutral { color: #64748b; }
+    .fear-greed-tone-greed { color: #65a30d; }
+    .fear-greed-tone-extreme-greed { color: #059669; }
+    .fear-greed-rating {
+      position: relative;
+      flex: 0 0 auto;
+      padding: 5px 8px;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      background: rgb(251 113 133 / .1);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      cursor: help;
+    }
+    .fear-greed-rating.fear-greed-tone-extreme-fear { background: rgb(251 113 133 / .1); }
+    .fear-greed-rating.fear-greed-tone-fear { background: rgb(249 115 22 / .1); }
+    .fear-greed-rating.fear-greed-tone-neutral { background: rgb(100 116 139 / .1); }
+    .fear-greed-rating.fear-greed-tone-greed { background: rgb(101 163 13 / .1); }
+    .fear-greed-rating.fear-greed-tone-extreme-greed { background: rgb(5 150 105 / .1); }
+    .fear-greed-rating:focus-visible,
+    .fear-greed-temperature-track:focus-visible {
+      outline: 2px solid #10b981;
+      outline-offset: 2px;
+    }
+    .fear-greed-rating-tooltip {
+      position: absolute;
+      z-index: 20;
+      top: calc(100% + 9px);
+      left: 0;
+      width: min(320px, calc(100vw - 48px));
+      padding: 10px 11px;
+      border: 1px solid rgb(203 213 225);
+      border-radius: 9px;
+      background: rgb(248 250 252);
+      color: rgb(30 41 59);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.55;
+      text-align: left;
+      white-space: normal;
+      box-shadow: 0 10px 28px rgb(15 23 42 / .22);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity .14s ease, transform .14s ease;
+      visibility: hidden;
+    }
+    .dark .fear-greed-rating-tooltip,
+    .dark .fear-greed-floating-tooltip {
+      border-color: rgb(51 65 85);
+      background: rgb(30 41 59);
+      color: rgb(226 232 240);
+    }
+    .fear-greed-rating-tooltip strong {
+      display: block;
+      margin-bottom: 3px;
+      color: #fb7185;
+      font-weight: 850;
+    }
+    .fear-greed-rating:hover .fear-greed-rating-tooltip,
+    .fear-greed-rating:focus .fear-greed-rating-tooltip,
+    .fear-greed-rating.is-open .fear-greed-rating-tooltip {
+      opacity: 1;
+      transform: translateY(0);
+      visibility: visible;
+    }
+    .fear-greed-updated {
+      margin-top: 10px;
+      color: rgb(100 116 139);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .dark .fear-greed-updated { color: rgb(148 163 184); }
+    .fear-greed-temperature {
+      width: min(100%, 160px);
+      margin-top: 15px;
+    }
+    .fear-greed-temperature-track {
+      position: relative;
+      display: grid;
+      grid-template-columns: 25fr 20fr 10fr 20fr 25fr;
+      align-items: center;
+      gap: 3px;
+      height: 24px;
+      border-radius: 6px;
+      cursor: crosshair;
+    }
+    .fear-greed-temperature-segment {
+      height: 7px;
+      border-radius: 999px;
+    }
+    .fear-greed-temperature-segment:nth-child(1) { background: #be123c; }
+    .fear-greed-temperature-segment:nth-child(2) { background: #f97316; }
+    .fear-greed-temperature-segment:nth-child(3) { background: #94a3b8; }
+    .fear-greed-temperature-segment:nth-child(4) { background: #84cc16; }
+    .fear-greed-temperature-segment:nth-child(5) { background: #059669; }
+    .fear-greed-temperature-marker {
+      position: absolute;
+      top: 4px;
+      width: 3px;
+      height: 17px;
+      border: 2px solid white;
+      border-radius: 999px;
+      background: rgb(15 23 42);
+      box-shadow: 0 0 0 1px rgb(15 23 42);
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    .dark .fear-greed-temperature-marker {
+      border-color: rgb(15 23 42);
+      background: white;
+      box-shadow: 0 0 0 1px white;
+    }
+    .fear-greed-floating-tooltip {
+      position: absolute;
+      z-index: 10;
+      min-width: max-content;
+      padding: 6px 8px;
+      border: 1px solid rgb(203 213 225);
+      border-radius: 7px;
+      background: rgb(248 250 252);
+      color: rgb(30 41 59);
+      font-size: 10px;
+      font-weight: 750;
+      line-height: 1.25;
+      box-shadow: 0 8px 24px rgb(15 23 42 / .18);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .fear-greed-temperature-tooltip { bottom: 25px; }
+    .fear-greed-temperature-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 7px;
+      color: rgb(100 116 139);
+      font-size: 9px;
+    }
+    .dark .fear-greed-temperature-labels { color: rgb(100 116 139); }
+    .fear-greed-chart-panel {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      align-self: stretch;
+      min-width: 0;
+      min-height: 150px;
+    }
+    .fear-greed-chart-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .fear-greed-chart-title {
+      color: rgb(30 41 59);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .dark .fear-greed-chart-title { color: rgb(241 245 249); }
+    .fear-greed-chart-caption {
+      color: rgb(100 116 139);
+      font-size: 10px;
+    }
+    .fear-greed-canvas-wrap {
+      position: relative;
+      min-height: 126px;
+      overflow: hidden;
+    }
+    .fear-greed-canvas {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .fear-greed-chart-tooltip { transform: translate(-50%, calc(-100% - 10px)); }
+    .fear-greed-empty {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: rgb(100 116 139);
+      font-size: 11px;
+    }
+
+    @media (max-width: 640px) {
+      .fear-greed-card {
+        grid-template-columns: 160px minmax(0, 1fr);
+        gap: 12px;
+        padding: 14px;
+      }
+      .fear-greed-summary {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px 18px;
+      }
+      .fear-greed-temperature { margin-top: 2px; }
+      .fear-greed-score { font-size: 46px; }
+      .fear-greed-updated { margin-top: 7px; }
+      .fear-greed-chart-panel { min-height: 132px; }
+      .fear-greed-chart-head { gap: 6px; margin-bottom: 4px; }
+      .fear-greed-chart-title { font-size: 10px; white-space: nowrap; }
+      .fear-greed-chart-caption { display: none; }
+      .fear-greed-canvas-wrap { min-height: 112px; }
+    }
+
+    @media (max-width: 360px) {
+      .fear-greed-card {
+        grid-template-columns: 124px minmax(0, 1fr);
+        gap: 10px;
+        padding: 12px;
+      }
+      .fear-greed-score-line { gap: 6px; width: 124px; }
+      .fear-greed-score { font-size: 40px; }
+      .fear-greed-rating { padding: 4px 6px; font-size: 10px; }
+      .fear-greed-updated { font-size: 9px; }
+      .fear-greed-temperature { width: 124px; }
+      .fear-greed-chart-title { font-size: 9px; }
+      .fear-greed-chart-panel { min-height: 124px; }
+      .fear-greed-canvas-wrap { min-height: 104px; }
+    }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
@@ -123,7 +387,7 @@
         </button>
 
         <!-- 即时刷新行情按钮 -->
-        <button @click="fetchData(true)" :disabled="loading"
+        <button @click="refreshAll" :disabled="loading"
           class="min-h-11 sm:min-h-0 px-2 py-1 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-1 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
           <svg :class="{'animate-spin': loading}" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -226,6 +490,73 @@
           <span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium font-tabular">
             {{ activeScaleFactor ? '×' + activeScaleFactor : '--' }}
           </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 独立市场情绪模块：不参与 ETF 估值、排序或历史归档 -->
+    <section class="fear-greed-card" aria-labelledby="fearGreedTitle" data-fear-greed-card>
+      <div class="fear-greed-summary">
+        <div>
+          <div id="fearGreedTitle" class="fear-greed-eyebrow flex items-center gap-2">
+            <span>恐惧贪婪指数</span>
+            <span v-if="fearGreed?.stale" class="rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:border-amber-700/70 dark:bg-amber-950/50 dark:text-amber-300">缓存数据</span>
+          </div>
+          <div class="fear-greed-score-line">
+            <strong class="fear-greed-score" :class="fearGreedTone">{{ fearGreed?.valid ? Math.round(fearGreed.score) : '--' }}</strong>
+            <button v-if="fearGreed?.valid" type="button"
+              class="fear-greed-rating" :class="[fearGreedTone, { 'is-open': fearGreedTipOpen }]"
+              :aria-expanded="fearGreedTipOpen" aria-describedby="fearGreedExplanation"
+              @click="fearGreedTipOpen = !fearGreedTipOpen" @blur="fearGreedTipOpen = false">
+              {{ fearGreed.rating_label }}
+              <span id="fearGreedExplanation" class="fear-greed-rating-tooltip" role="tooltip">
+                <strong>{{ fearGreedExplanation.title }}</strong>
+                {{ fearGreedExplanation.body }}
+              </span>
+            </button>
+            <span v-else class="text-xs font-bold text-slate-500 dark:text-slate-400">暂不可用</span>
+          </div>
+          <div class="fear-greed-updated">
+            <template v-if="fearGreed?.valid">最近更新：{{ formatFearGreedTime(fearGreed.as_of) }}</template>
+            <template v-else-if="fearGreedLoading">正在读取市场情绪…</template>
+            <template v-else>情绪数据暂不可用</template>
+          </div>
+        </div>
+
+        <div class="fear-greed-temperature" :aria-label="fearGreed?.valid ? `市场情绪温度：${fearGreed.score}分，${fearGreed.rating_label}` : '市场情绪温度暂不可用'">
+          <div ref="fearGreedTemperatureTrack" class="fear-greed-temperature-track" tabindex="0" role="img"
+            aria-label="恐惧贪婪指数色温区间；低分代表恐惧，高分代表贪婪；移动鼠标可查看0到100对应数值"
+            @pointermove="onFearGreedTemperaturePointer" @pointerdown="onFearGreedTemperaturePointer"
+            @pointerleave="hideFearGreedTemperatureTip" @focus="showCurrentFearGreedTemperature" @blur="hideFearGreedTemperatureTip">
+            <span class="fear-greed-temperature-segment"></span>
+            <span class="fear-greed-temperature-segment"></span>
+            <span class="fear-greed-temperature-segment"></span>
+            <span class="fear-greed-temperature-segment"></span>
+            <span class="fear-greed-temperature-segment"></span>
+            <i v-if="fearGreed?.valid" class="fear-greed-temperature-marker" :style="{ left: `${fearGreed.score}%` }"></i>
+            <div v-if="fearGreedTemperatureTip.visible" class="fear-greed-floating-tooltip fear-greed-temperature-tooltip" role="tooltip"
+              :style="{ left: `${fearGreedTemperatureTip.left}%`, transform: fearGreedTemperatureTip.transform }">
+              {{ fearGreedTemperatureTip.value }} · {{ sentimentBand(fearGreedTemperatureTip.value) }}
+            </div>
+          </div>
+          <div class="fear-greed-temperature-labels"><span>0 极度恐惧</span><span>100 极度贪婪</span></div>
+        </div>
+      </div>
+
+      <div class="fear-greed-chart-panel">
+        <div class="fear-greed-chart-head">
+          <span class="fear-greed-chart-title">最近30日情绪走势</span>
+          <span class="fear-greed-chart-caption">日级数据 · 0—100</span>
+        </div>
+        <div ref="fearGreedCanvasWrap" class="fear-greed-canvas-wrap">
+          <canvas ref="fearGreedCanvas" class="fear-greed-canvas" role="img"
+            :aria-label="fearGreedChartAria" @pointermove="onFearGreedChartPointer" @pointerleave="hideFearGreedChartTip"></canvas>
+          <div v-if="fearGreedChartTip.visible" class="fear-greed-floating-tooltip fear-greed-chart-tooltip" role="tooltip"
+            :style="{ left: `${fearGreedChartTip.x}px`, top: `${fearGreedChartTip.y}px` }">
+            <div>{{ formatFearGreedDate(fearGreedChartTip.date) }}</div>
+            <strong>{{ fearGreedChartTip.value }} · {{ sentimentBand(fearGreedChartTip.value) }}</strong>
+          </div>
+          <div v-if="!fearGreed?.valid && !fearGreedLoading" class="fear-greed-empty">暂无可绘制数据</div>
         </div>
       </div>
     </section>
@@ -765,7 +1096,7 @@
     <!-- 页脚 -->
     <footer class="mt-6 pt-3 pb-6 border-t border-slate-200 dark:border-slate-800/50 text-center text-[11px] text-slate-400 dark:text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-1">
       <div>CrossETF · 跨境ETF实时溢价追踪 (纳指100 + 标普500)</div>
-      <div>数据源：天天基金、CME Group、新浪财经、腾讯行情</div>
+      <div>数据源：天天基金、CME Group、新浪财经、腾讯行情、FearGreedFlow</div>
     </footer>
 
   </div>
@@ -818,9 +1149,12 @@
           isDarkMode.value = !isDarkMode.value;
           applyTheme(isDarkMode.value);
           localStorage.setItem('nas_theme', isDarkMode.value ? 'dark' : 'light');
+          nextTick(() => drawFearGreedChart());
         };
 
         let countdownTimer = null;
+        let fearGreedTimer = null;
+        let fearGreedResizeObserver = null;
 
         const macro = ref({
           cme_nq: {},
@@ -833,7 +1167,78 @@
         });
 
         // 系统版本号
-        const appVersion = ref('v1.4.0');
+        const appVersion = ref('v1.5.0');
+
+        // 独立市场情绪状态：与 ETF 行情、排序和归档完全隔离。
+        const fearGreed = ref(null);
+        const fearGreedLoading = ref(true);
+        const fearGreedError = ref(null);
+        const fearGreedTipOpen = ref(false);
+        const fearGreedCanvas = ref(null);
+        const fearGreedCanvasWrap = ref(null);
+        const fearGreedTemperatureTrack = ref(null);
+        const fearGreedTemperatureTip = ref({ visible: false, value: 0, left: 0, transform: 'translateX(-50%)' });
+        const fearGreedChartTip = ref({ visible: false, x: 0, y: 0, date: '', value: 0 });
+        let fearGreedChartPoints = [];
+
+        const fearGreedTone = computed(() => {
+          const rating = fearGreed.value?.rating || 'neutral';
+          return `fear-greed-tone-${rating.replaceAll('_', '-')}`;
+        });
+
+        const fearGreedChartAria = computed(() => {
+          const history = fearGreed.value?.history || [];
+          if (!history.length) return '最近30日恐惧贪婪指数走势暂不可用';
+          const first = history[0];
+          const last = history[history.length - 1];
+          return `最近30日恐惧贪婪指数由${first.value}变化到${last.value}`;
+        });
+
+        const fearGreedExplanation = computed(() => {
+          const rating = fearGreed.value?.rating;
+          if (rating === 'extreme_fear' || rating === 'fear') {
+            return {
+              title: rating === 'extreme_fear' ? '投资者明显更谨慎' : '投资者偏向谨慎',
+              body: '当前市场更偏向避险：买入和追涨意愿变弱，卖出压力可能增大；但不等于所有投资者都在不计成本抛售，也不代表市场已经见底。',
+            };
+          }
+          if (rating === 'greed' || rating === 'extreme_greed') {
+            return {
+              title: rating === 'extreme_greed' ? '追涨情绪明显升温' : '投资者风险偏好较高',
+              body: '当前市场买入和追涨意愿较强，投资者更愿意承担风险；但不代表市场一定继续上涨，也不等于应该立即卖出。',
+            };
+          }
+          return {
+            title: '市场情绪相对均衡',
+            body: '当前恐惧与贪婪力量大致平衡，单靠情绪指数难以判断后续方向，仍需结合价格、估值和自身风险承受能力。',
+          };
+        });
+
+        const sentimentBand = (value) => {
+          const score = Number(value);
+          if (score < 25) return '极度恐惧';
+          if (score < 45) return '恐惧';
+          if (score < 55) return '中性';
+          if (score < 75) return '贪婪';
+          return '极度贪婪';
+        };
+
+        const formatFearGreedDate = (value) => {
+          if (!value) return '--';
+          const parts = String(value).slice(0, 10).split('-');
+          if (parts.length !== 3) return value;
+          return `${Number(parts[1])}月${Number(parts[2])}日`;
+        };
+
+        const formatFearGreedTime = (value) => {
+          if (!value) return '--';
+          if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return formatFearGreedDate(value);
+          const parsed = new Date(value);
+          if (Number.isNaN(parsed.getTime())) return String(value);
+          return new Intl.DateTimeFormat('zh-CN', {
+            month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false
+          }).format(parsed);
+        };
 
         // 每日收盘历史归档相关状态
         const showHistoryModal = ref(false);
@@ -938,6 +1343,158 @@
           return nasdaq100List.value.filter(x => x.est_premium !== null && x.est_premium !== undefined && x.price !== null && x.price > 0);
         });
 
+        const fearGreedLineColor = () => {
+          const rating = fearGreed.value?.rating;
+          if (rating === 'fear') return '#f97316';
+          if (rating === 'neutral') return '#64748b';
+          if (rating === 'greed') return '#65a30d';
+          if (rating === 'extreme_greed') return '#059669';
+          return '#fb7185';
+        };
+
+        const drawFearGreedChart = () => {
+          const canvas = fearGreedCanvas.value;
+          const wrap = fearGreedCanvasWrap.value;
+          const history = fearGreed.value?.history || [];
+          if (!canvas || !wrap || !history.length) {
+            fearGreedChartPoints = [];
+            return;
+          }
+
+          const rect = wrap.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) return;
+          const dpr = window.devicePixelRatio || 1;
+          canvas.width = Math.max(1, Math.round(rect.width * dpr));
+          canvas.height = Math.max(1, Math.round(rect.height * dpr));
+
+          const ctx = canvas.getContext('2d');
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.clearRect(0, 0, rect.width, rect.height);
+
+          const dark = document.documentElement.classList.contains('dark');
+          const gridColor = dark ? '#26364d' : '#dbe4ef';
+          const textColor = dark ? '#64748b' : '#64748b';
+          const surfaceColor = dark ? '#0f172a' : '#ffffff';
+          const pad = { top: 9, right: 8, bottom: 21, left: 28 };
+          const width = Math.max(1, rect.width - pad.left - pad.right);
+          const height = Math.max(1, rect.height - pad.top - pad.bottom);
+          const maxValue = Math.max(...history.map(point => Number(point.value)));
+          const maxY = Math.min(100, Math.max(60, Math.ceil(maxValue / 20) * 20));
+          const ticks = [0, maxY / 2, maxY];
+
+          ctx.lineWidth = 1;
+          ctx.font = '9px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          ticks.forEach(value => {
+            const y = pad.top + height - (value / maxY) * height;
+            ctx.strokeStyle = gridColor;
+            ctx.beginPath();
+            ctx.moveTo(pad.left, y);
+            ctx.lineTo(pad.left + width, y);
+            ctx.stroke();
+            ctx.fillStyle = textColor;
+            ctx.fillText(String(Math.round(value)), pad.left - 8, y);
+          });
+
+          fearGreedChartPoints = history.map((point, index) => {
+            const x = history.length === 1 ? pad.left + width / 2 : pad.left + (index / (history.length - 1)) * width;
+            const y = pad.top + height - (Number(point.value) / maxY) * height;
+            return { x, y, date: point.date, value: Number(point.value) };
+          });
+
+          ctx.strokeStyle = fearGreedLineColor();
+          ctx.lineWidth = 2.5;
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          fearGreedChartPoints.forEach((point, index) => {
+            if (index === 0) ctx.moveTo(point.x, point.y);
+            else ctx.lineTo(point.x, point.y);
+          });
+          ctx.stroke();
+
+          const latest = fearGreedChartPoints[fearGreedChartPoints.length - 1];
+          ctx.fillStyle = surfaceColor;
+          ctx.strokeStyle = fearGreedLineColor();
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(latest.x, latest.y, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = textColor;
+          ctx.font = '9px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+          ctx.textBaseline = 'bottom';
+          ctx.textAlign = 'left';
+          ctx.fillText('30天前', pad.left, rect.height - 1);
+          ctx.textAlign = 'right';
+          ctx.fillText('现在', pad.left + width, rect.height - 1);
+        };
+
+        const onFearGreedChartPointer = (event) => {
+          if (!fearGreedChartPoints.length || !fearGreedCanvasWrap.value) return;
+          const rect = fearGreedCanvasWrap.value.getBoundingClientRect();
+          const pointerX = event.clientX - rect.left;
+          const point = fearGreedChartPoints.reduce((nearest, candidate) =>
+            Math.abs(candidate.x - pointerX) < Math.abs(nearest.x - pointerX) ? candidate : nearest
+          );
+          fearGreedChartTip.value = {
+            visible: true,
+            x: Math.max(48, Math.min(rect.width - 48, point.x)),
+            y: Math.max(44, point.y),
+            date: point.date,
+            value: point.value,
+          };
+        };
+
+        const hideFearGreedChartTip = () => {
+          fearGreedChartTip.value = { ...fearGreedChartTip.value, visible: false };
+        };
+
+        const showFearGreedTemperature = (value) => {
+          const safeValue = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+          fearGreedTemperatureTip.value = {
+            visible: true,
+            value: safeValue,
+            left: safeValue,
+            transform: safeValue < 12 ? 'translateX(0)' : safeValue > 88 ? 'translateX(-100%)' : 'translateX(-50%)',
+          };
+        };
+
+        const onFearGreedTemperaturePointer = (event) => {
+          const track = fearGreedTemperatureTrack.value;
+          if (!track) return;
+          const rect = track.getBoundingClientRect();
+          showFearGreedTemperature(((event.clientX - rect.left) / rect.width) * 100);
+        };
+
+        const showCurrentFearGreedTemperature = () => showFearGreedTemperature(fearGreed.value?.score ?? 50);
+        const hideFearGreedTemperatureTip = () => {
+          fearGreedTemperatureTip.value = { ...fearGreedTemperatureTip.value, visible: false };
+        };
+
+        const fetchFearGreed = async () => {
+          fearGreedLoading.value = true;
+          fearGreedError.value = null;
+          try {
+            const resp = await fetch('/api/fear-greed?t=' + Date.now());
+            const res = await resp.json();
+            if (!resp.ok || res.code !== 200 || !res.data?.valid) {
+              throw new Error(res.message || `HTTP ${resp.status}`);
+            }
+            fearGreed.value = res.data;
+            await nextTick();
+            drawFearGreedChart();
+          } catch (error) {
+            fearGreedError.value = error.message || '情绪数据暂不可用';
+            if (!fearGreed.value?.valid) fearGreed.value = null;
+            console.error('Fetch fear and greed failed:', error);
+          } finally {
+            fearGreedLoading.value = false;
+          }
+        };
+
         // 获取行情数据
         const fetchData = async (isManual = false) => {
           if (isManual) loading.value = true;
@@ -980,6 +1537,12 @@
               countdown.value = currentIntervalSeconds.value;
             }
           }
+        };
+
+        const refreshAll = async () => {
+          loading.value = true;
+          await Promise.allSettled([fetchData(false), fetchFearGreed()]);
+          setTimeout(() => { loading.value = false; }, 300);
         };
 
         // 同步日志与操作反馈状态
@@ -1213,13 +1776,22 @@
 
         onMounted(() => {
           applyTheme(isDarkMode.value);
-          fetchData(true);
+          refreshAll();
           startTimers();
+          fearGreedTimer = setInterval(fetchFearGreed, 60 * 60 * 1000);
+          nextTick(() => {
+            if (fearGreedCanvasWrap.value && 'ResizeObserver' in window) {
+              fearGreedResizeObserver = new ResizeObserver(() => drawFearGreedChart());
+              fearGreedResizeObserver.observe(fearGreedCanvasWrap.value);
+            }
+          });
           document.addEventListener('keydown', onHistoryKeydown);
         });
 
         onUnmounted(() => {
           stopTimers();
+          if (fearGreedTimer) clearInterval(fearGreedTimer);
+          if (fearGreedResizeObserver) fearGreedResizeObserver.disconnect();
           document.removeEventListener('keydown', onHistoryKeydown);
           document.body.style.overflow = '';
         });
@@ -1266,6 +1838,27 @@
           arbAdviceTitle,
           arbAdviceColor,
           fetchData,
+          refreshAll,
+          fearGreed,
+          fearGreedLoading,
+          fearGreedError,
+          fearGreedTipOpen,
+          fearGreedTone,
+          fearGreedExplanation,
+          fearGreedChartAria,
+          fearGreedCanvas,
+          fearGreedCanvasWrap,
+          fearGreedTemperatureTrack,
+          fearGreedTemperatureTip,
+          fearGreedChartTip,
+          sentimentBand,
+          formatFearGreedDate,
+          formatFearGreedTime,
+          onFearGreedTemperaturePointer,
+          showCurrentFearGreedTemperature,
+          hideFearGreedTemperatureTip,
+          onFearGreedChartPointer,
+          hideFearGreedChartTip,
           syncSymbols,
           syncFeedback,
           closeSyncFeedback,
