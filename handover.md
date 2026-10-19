@@ -41,13 +41,14 @@
 - **极简设计原则（KISS）**：
   - **后端**：零第三方依赖，纯 Python 3 标准库（`http.server.ThreadingHTTPServer` + `urllib`）。
   - **前端**：单页面响应式（Vue 3 CDN + Tailwind CSS CDN），无打包编译环节，开箱即用。
-  - **数据存储**：全部持久化文件统一收敛于 **`data/`** 目录。
+  - **数据存储**：业务收盘档案与可再生成运行缓存统一收敛于 **`data/`** 目录，按用途分别维护。
 - **关键文件清单**：
   - [`server.py`](server.py)：服务端主程序。内置标的动态发现、行情聚合、`/api/history` 查询与后台自主采集守护线程 `daily_collector_daemon`。
   - [`static/index.html`](static/index.html)：单页面前端。集成响应式 ETF 卡片/桌面表格、换仓测算器、版本徽章及每日收盘历史感知弹窗。
   - [`data/`](data/)：**核心持久化数据目录**。
-    - `data/nasdaq_symbols_cache.json`：天天基金动态探测出的标的池本地缓存。
-    - `data/history_daily.json`：每日 15:00 收盘后沉淀的全市场宏观中枢与 18 只 ETF 量价档案。
+    - `data/history_daily.json`：业务收盘档案，记录每日全市场宏观中枢与 ETF 量价数据。
+    - `data/nasdaq_symbols_cache.json`：天天基金在线扫描生成的可再生成运行缓存；被 `.gitignore` 忽略，不提交。
+    - `data/fear_greed_cache.json`：恐惧贪婪指数最后有效数据的可再生成运行缓存；被 `.gitignore` 忽略，不提交。
   - [`docker-compose.yml`](docker-compose.yml)：容器部署编排，挂载 `./data:/app/data`，端口 `8000:8000`。
   - [`test_review_criteria.py`](test_review_criteria.py)：9 项核心验收、幂等性、移动端结构及情绪缓存回归测试套件。
   - [`docs/mobile-adaptation/`](docs/mobile-adaptation/)：本轮移动端需求分析、讨论记录、最终方案、Demo 和视觉证据。
@@ -66,8 +67,9 @@
    - 服务启动时自动启动 `start_daily_collector_daemon()`。
    - 每个工作日（周一至周五）**15:02 ~ 15:30** 期间每分钟巡检一次。
    - 即使数周无人访问网页，只要后台程序在跑，系统也会自主抓取收盘行情并落盘，**绝不漏采**。单日严格只写一次（幂等）。
-3. **单一数据源原则 (Single Source of Truth)**：
-   - 所有持久化数据统一收敛至 `data/` 目录并直接纳入 Git 跟踪。根目录下不再保留重复的 JSON 文件，杜绝双份维护隐患。Docker 镜像构建与本地运行一律以 `data/` 为唯一源头。
+3. **数据与缓存边界 (Business Data and Runtime Caches)**：
+   - `history_daily.json` 是业务收盘档案；`nasdaq_symbols_cache.json` 与 `fear_greed_cache.json` 是可再生成的运行缓存，均位于 `data/`，后两者由 `.gitignore` 排除，不得提交、暂存或回退。
+   - Docker 镜像构建与本地运行均使用挂载的 `data/` 目录保存业务档案和本地运行缓存。
 4. **沙箱与外网访问**：
    - 在本助手的终端沙箱中，直接网络调用（拉取行情、`git push`）需按规则使用 `BypassSandbox: true`。
 5. **移动端响应式展示原则**：
@@ -133,7 +135,7 @@ gh repo view
 - **本轮已完成**：独立恐惧贪婪指数模块，包括 `/api/fear-greed`、当前温度、五段色温、最近 30 个自然日趋势、60 分钟缓存、10 分钟失败节流、持久化旧数据降级及移动端双栏布局。
 - **隔离边界**：该模块不得影响 `/api/quotes`、ETF 估值/排序/价差测算或 `history_daily.json`；后续改动需继续保留此边界。
 - **验证基线**：`python3 test_review_criteria.py` 为 9/9 通过；`git diff --check` 通过；桌面/390×844、深浅主题、提示交互和 Canvas 高度稳定已复验。专项证据见 `docs/cnn-fear-greed/design-qa.md`。
-- **运行数据**：`data/fear_greed_cache.json` 为可再生成且被忽略的缓存；`data/nasdaq_symbols_cache.json` 可能因本地启动自动刷新。接手 Agent 不得在未确认的情况下覆盖、回退或混入功能提交。
+- **运行数据**：`data/fear_greed_cache.json` 与 `data/nasdaq_symbols_cache.json` 均为可再生成且被忽略的运行缓存；在线扫描会生成或刷新标的池缓存。接手 Agent 不得提交、暂存或回退这些文件；首次启动无网且无标的池缓存时，服务会使用代码内置的 `DEFAULT_*` 标的池。
 - **已知非阻塞项**：浏览器控制台仍有项目原有的 Tailwind CDN 生产提示；尚未进行实体 iOS/Android 字体缩放验收。
 - **后续候选方向**：云主机生产部署；基于 `history_daily.json` 的极简历史均溢趋势线。两项均未获本轮实施授权。
 
