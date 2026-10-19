@@ -148,12 +148,31 @@
       visibility: visible;
     }
     .fear-greed-updated {
+      display: grid;
+      gap: 2px;
       margin-top: 10px;
       color: rgb(100 116 139);
-      font-size: 11px;
-      line-height: 1.45;
+      font-size: 10px;
+      line-height: 1.4;
     }
     .dark .fear-greed-updated { color: rgb(148 163 184); }
+    .fear-greed-updated-item {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      min-width: 0;
+      white-space: nowrap;
+    }
+    .fear-greed-updated-label {
+      color: rgb(148 163 184);
+      font-size: 9px;
+      font-weight: 650;
+    }
+    .dark .fear-greed-updated-label { color: rgb(100 116 139); }
+    .fear-greed-updated-value {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
     .fear-greed-temperature {
       width: min(100%, 160px);
       margin-top: 15px;
@@ -297,6 +316,8 @@
       .fear-greed-score { font-size: 40px; }
       .fear-greed-rating { padding: 4px 6px; font-size: 10px; }
       .fear-greed-updated { font-size: 9px; }
+      .fear-greed-updated-item { gap: 3px; }
+      .fear-greed-updated-label { font-size: 8px; }
       .fear-greed-temperature { width: 124px; }
       .fear-greed-chart-title { font-size: 9px; }
       .fear-greed-chart-panel { min-height: 124px; }
@@ -517,7 +538,16 @@
             <span v-else class="text-xs font-bold text-slate-500 dark:text-slate-400">暂不可用</span>
           </div>
           <div class="fear-greed-updated">
-            <template v-if="fearGreed?.valid">最近更新：{{ formatFearGreedTime(fearGreed.as_of) }}</template>
+            <template v-if="fearGreed?.valid">
+              <span class="fear-greed-updated-item">
+                <span class="fear-greed-updated-label">数据时间</span>
+                <time class="fear-greed-updated-value" :datetime="fearGreed.as_of">{{ formatFearGreedTime(fearGreed.as_of) }}</time>
+              </span>
+              <span class="fear-greed-updated-item">
+                <span class="fear-greed-updated-label">最近拉取</span>
+                <time class="fear-greed-updated-value" :datetime="fearGreed.last_success_at">{{ formatFearGreedTime(fearGreed.last_success_at) }}</time>
+              </span>
+            </template>
             <template v-else-if="fearGreedLoading">正在读取市场情绪…</template>
             <template v-else>情绪数据暂不可用</template>
           </div>
@@ -583,14 +613,6 @@
           <span class="col-span-2 text-xs text-slate-500 dark:text-slate-400 sm:ml-1">按{{ sortKey === 'est_premium' ? '溢价率' : sortKey }}{{ sortAsc ? '升序' : '降序' }}</span>
         </div>
 
-        <!-- 极简色卡图例 -->
-        <div class="hidden sm:flex items-center gap-2.5 text-[11px] text-slate-500 dark:text-slate-400">
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>安全(&lt;3%)</span>
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-cyan-500"></span>温和(3~6%)</span>
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span>偏高(6~10%)</span>
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-500"></span>高危(10~15%)</span>
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span>泡沫(&gt;15%)</span>
-        </div>
       </div>
 
       <!-- 手机端核心数据卡片：默认只展示代码/简称、实时溢价率、涨跌幅、现价 -->
@@ -634,9 +656,6 @@
                 <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">市场</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ item.market || '--' }}</dd></div>
                 <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">跟踪指数</dt><dd class="mt-1 text-xs leading-tight font-bold text-slate-900 dark:text-white break-words">{{ item.index_name || '--' }}</dd></div>
               </dl>
-              <div class="mt-3 px-3 py-2.5 rounded-lg text-xs font-semibold leading-relaxed" :class="getAdviceBadgeClass(item.premium_level)">
-                {{ item.premium_advice && item.premium_advice !== '--' ? item.premium_advice : '暂无风险建议' }}
-              </div>
             </div>
           </div>
         </article>
@@ -692,7 +711,6 @@
                 <th class="py-2.5 px-3 text-right hidden lg:table-cell cursor-pointer hover:text-slate-900 dark:hover:text-white" @click="sortBy('amount_wan')">
                   成交额
                 </th>
-                <th class="py-2.5 px-3 text-center w-20">建议</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/50 font-tabular">
@@ -761,14 +779,6 @@
                   {{ item.amount_str }}
                 </td>
 
-                <!-- 建议标签 -->
-                <td class="py-2.5 px-3 text-center">
-                  <span v-if="item.premium_advice && item.premium_advice !== '--'" class="inline-block px-2 py-0.5 rounded text-[11px] font-bold"
-                    :class="getAdviceBadgeClass(item.premium_level)">
-                    {{ item.premium_advice }}
-                  </span>
-                  <span v-else class="text-slate-400 dark:text-slate-500 text-xs font-mono">--</span>
-                </td>
 
               </tr>
             </tbody>
@@ -828,9 +838,6 @@
                 <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">市场</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ item.market || '--' }}</dd></div>
                 <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">跟踪指数</dt><dd class="mt-1 text-xs leading-tight font-bold text-slate-900 dark:text-white break-words">{{ item.index_name || '--' }}</dd></div>
               </dl>
-              <div class="mt-3 px-3 py-2.5 rounded-lg text-xs font-semibold leading-relaxed" :class="getAdviceBadgeClass(item.premium_level)">
-                {{ item.premium_advice && item.premium_advice !== '--' ? item.premium_advice : '暂无风险建议' }}
-              </div>
             </div>
           </div>
         </article>
@@ -850,7 +857,6 @@
                 <th class="py-2 px-3 text-right text-indigo-600 dark:text-indigo-300 font-semibold">实时估值 (IOPV)</th>
                 <th class="py-2 px-3 text-right hidden md:table-cell">公布净值</th>
                 <th class="py-2 px-3 text-right hidden lg:table-cell">成交额</th>
-                <th class="py-2 px-3 text-center w-20">建议</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/50 font-tabular">
@@ -894,14 +900,6 @@
                 <!-- 成交额 -->
                 <td class="py-2.5 px-3 text-right hidden lg:table-cell text-slate-600 dark:text-slate-300 font-medium">
                   {{ item.amount_str }}
-                </td>
-                <!-- 建议 -->
-                <td class="py-2.5 px-3 text-center">
-                  <span v-if="item.premium_advice && item.premium_advice !== '--'" class="inline-block px-2 py-0.5 rounded text-[11px] font-bold"
-                    :class="getAdviceBadgeClass(item.premium_level)">
-                    {{ item.premium_advice }}
-                  </span>
-                  <span v-else class="text-slate-400 dark:text-slate-500 text-xs font-mono">--</span>
                 </td>
               </tr>
             </tbody>
@@ -988,9 +986,9 @@
 
       <div id="knowledge-panel" v-show="showKnowledge" class="p-4 pt-1 border-t border-slate-200 dark:border-slate-800/60 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
         <div class="p-2.5 rounded bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/70">
-          <div class="font-bold text-amber-700 dark:text-amber-300">❓ 为什么跌了溢价反而高了？</div>
+          <div class="font-bold text-amber-700 dark:text-amber-300">❓ 为什么现价跌了，溢价反而高了？</div>
           <p class="mt-1 text-slate-500 dark:text-slate-400 leading-relaxed">
-            溢价率是 (现价 - 实时EST) / 实时EST。若昨夜美股大跌 2%，而白天国内现价仅跌 0.5%，分母缩减更快，溢价率不降反升。
+            溢价率取决于现价与估值基准的相对变化。IOPV 有效时以 IOPV 为基准；IOPV 缺失时可能回退到公布净值。若现价跌幅小于估值基准跌幅，溢价率仍可能上升。
           </p>
         </div>
         <div class="p-2.5 rounded bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/70">
@@ -1012,10 +1010,11 @@
           </p>
         </div>
         <div class="p-2.5 rounded bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/70 col-span-1 sm:col-span-2">
-          <div class="font-bold text-cyan-700 dark:text-cyan-300">📡 数据源与估值模型局限性说明</div>
+          <div class="font-bold text-cyan-700 dark:text-cyan-300">📡 数据源与指标局限性说明</div>
           <p class="mt-1 text-slate-500 dark:text-slate-400 leading-relaxed">
-            <strong>数据链路</strong>：天天基金（标的发现）、腾讯行情（现价与官方公布净值）、芝商所 CME（NQ/ES 期货日内跳动）、新浪外汇（USD/CNH 汇率）。<br>
-            <strong>核心局限</strong>：① <strong>基准日待核验</strong>：当前接口未提供实时官方净值发布日期核验机制，假定基准净值对应上一交易日；② <strong>持仓近似</strong>：模型假定 100% 紧密复制指数，未计提基金特有的现金留存与申赎缓冲；③ <strong>时间对齐与时滞</strong>：尚未解决微观时刻对齐与过期行情识别；④ <strong>细分行业保守处理</strong>：本系统尚未接入匹配的行业估值数据源，暂停细分行业标的 EST 估算。
+            <strong>数据链路</strong>：天天基金用于标的发现；腾讯行情提供现价、IOPV、IOPV 溢价率与公布净值；NQ/ES 期货和 USD/CNH 汇率只作宏观参考，不参与 ETF 估值或溢价计算。<br>
+            <strong>计算口径</strong>：现价与 IOPV 有效时优先采用接口返回的 IOPV 溢价率，缺失时按现价与 IOPV 计算；IOPV 缺失而公布净值有效时，以公布净值回退计算。<br>
+            <strong>核心局限</strong>：公布净值日期尚未核验，行情时刻也未严格对齐或识别过期数据；使用公布净值回退的结果与 IOPV 口径不同，解读排序和价差时需留意。
           </p>
         </div>
       </div>
@@ -1167,7 +1166,7 @@
         });
 
         // 系统版本号
-        const appVersion = ref('v1.5.0');
+        const appVersion = ref('v1.5.1');
 
         // 独立市场情绪状态：与 ETF 行情、排序和归档完全隔离。
         const fearGreed = ref(null);
@@ -1194,24 +1193,30 @@
           return `最近30日恐惧贪婪指数由${first.value}变化到${last.value}`;
         });
 
-        const fearGreedExplanation = computed(() => {
-          const rating = fearGreed.value?.rating;
-          if (rating === 'extreme_fear' || rating === 'fear') {
-            return {
-              title: rating === 'extreme_fear' ? '投资者明显更谨慎' : '投资者偏向谨慎',
-              body: '当前市场更偏向避险：买入和追涨意愿变弱，卖出压力可能增大；但不等于所有投资者都在不计成本抛售，也不代表市场已经见底。',
-            };
-          }
-          if (rating === 'greed' || rating === 'extreme_greed') {
-            return {
-              title: rating === 'extreme_greed' ? '追涨情绪明显升温' : '投资者风险偏好较高',
-              body: '当前市场买入和追涨意愿较强，投资者更愿意承担风险；但不代表市场一定继续上涨，也不等于应该立即卖出。',
-            };
-          }
-          return {
+        const fearGreedExplanations = {
+          extreme_fear: {
+            title: '市场避险情绪很强',
+            body: '组成指数的多项信号通常明显偏向防御：股票上涨动能和市场广度较弱，波动率、看跌期权或安全资产需求较高，投资者普遍减少冒险。',
+          },
+          fear: {
+            title: '市场情绪偏谨慎',
+            body: '组成指数的多项信号通常偏向防御：市场动能和资金风险偏好有所减弱，投资者追涨意愿较低，更重视控制风险。',
+          },
+          neutral: {
             title: '市场情绪相对均衡',
-            body: '当前恐惧与贪婪力量大致平衡，单靠情绪指数难以判断后续方向，仍需结合价格、估值和自身风险承受能力。',
-          };
+            body: '组成指数中的恐惧与贪婪信号大致平衡，市场动能、广度、波动率和资金偏好没有形成明显一致的方向。',
+          },
+          greed: {
+            title: '市场风险偏好较高',
+            body: '组成指数的多项信号通常偏向积极：市场动能和广度较强，投资者更愿意买入股票及其他风险资产，避险需求相对减弱。',
+          },
+          extreme_greed: {
+            title: '市场追涨情绪很强',
+            body: '组成指数的多项信号通常明显偏热：上涨动能、创新高股票和风险资产需求较强，投资者承担风险和追涨的意愿较高。',
+          },
+        };
+        const fearGreedExplanation = computed(() => {
+          return fearGreedExplanations[fearGreed.value?.rating] || fearGreedExplanations.neutral;
         });
 
         const sentimentBand = (value) => {
@@ -1723,16 +1728,6 @@
           return 'bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-500/25 dark:text-rose-300 dark:border-rose-500/60 animate-pulse';
         };
 
-        const getAdviceBadgeClass = (level) => {
-          switch (level) {
-            case 'safe': return 'bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30';
-            case 'low': return 'bg-cyan-100 text-cyan-800 border border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30';
-            case 'warning': return 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30';
-            case 'danger': return 'bg-orange-100 text-orange-800 border border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30';
-            case 'bubble': return 'bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/40';
-            default: return 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 font-mono';
-          }
-        };
 
         const startTimers = () => {
           stopTimers();
@@ -1874,7 +1869,6 @@
           getPriceChangeClass,
           getPremiumTextColor,
           getPremiumBadgeClass,
-          getAdviceBadgeClass
         };
       }
     }).mount('#app');

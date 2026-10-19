@@ -3,11 +3,11 @@
 ## 当前结论
 
 - 验收日期：2026-10-19
-- 当前工作区版本：`v1.5.0`
+- 当前工作区版本：`v1.5.1`
 - 本轮范围：独立恐惧贪婪指数模块
 - 最终结果：通过
 
-详细证据与逐项结论见：`docs/cnn-fear-greed/design-qa.md`。
+详细证据与逐项结论见：`cnn-fear-greed/design-qa.md`。
 
 ## 本轮验证摘要
 
@@ -21,7 +21,7 @@
 
 ## 历史专项报告
 
-- 手机端 v1.4.0 验收：`docs/mobile-adaptation/design-qa.md`
-- 恐惧贪婪指数 v1.5.0 验收：`docs/cnn-fear-greed/design-qa.md`
+- 手机端 v1.4.0 验收：`mobile-adaptation/design-qa.md`
+- 恐惧贪婪指数 v1.5.0 验收：`cnn-fear-greed/design-qa.md`
 
 final result: passed

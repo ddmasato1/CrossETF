@@ -20,7 +20,7 @@ import threading
 from datetime import datetime, timedelta
 
 # 基础配置
-APP_VERSION = "v1.5.0"
+APP_VERSION = "v1.5.1"
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
 FEAR_GREED_URL = "https://feargreedflow.com/api/fear-greed"
@@ -800,8 +800,6 @@ def get_market_data():
             status_desc = "无有效场内现价"
             est_realtime = iopv if (iopv and iopv > 0) else nav_t1
             est_premium = None
-            premium_level = "none"
-            premium_advice = "--"
         # 2. 官方 IOPV 有效（优先对齐券商交易盘中口径）
         elif iopv is not None and iopv > 0:
             val_status = "official_iopv"
@@ -813,51 +811,18 @@ def get_market_data():
             else:
                 est_premium = round(((price - iopv) / iopv) * 100.0, 2)
 
-            # 评级建议（按官方 IOPV 溢价率评定，涵盖行业标的）
-            if est_premium < 3.0:
-                premium_level = "safe"
-                premium_advice = "极低"
-            elif est_premium < 6.0:
-                premium_level = "low"
-                premium_advice = "温和"
-            elif est_premium < 10.0:
-                premium_level = "warning"
-                premium_advice = "偏高"
-            elif est_premium < 15.0:
-                premium_level = "danger"
-                premium_advice = "高危"
-            else:
-                premium_level = "bubble"
-                premium_advice = "泡沫"
         # 3. IOPV 缺失但官方公布净值有效（非交易时段或未计算 IOPV 时的回退）
         elif nav_t1 is not None and nav_t1 > 0:
             val_status = "nav_fallback"
             status_desc = "基准公布净值估算(IOPV未发布)"
             est_realtime = nav_t1
             est_premium = round(((price - nav_t1) / nav_t1) * 100.0, 2)
-            if est_premium < 3.0:
-                premium_level = "safe"
-                premium_advice = "极低"
-            elif est_premium < 6.0:
-                premium_level = "low"
-                premium_advice = "温和"
-            elif est_premium < 10.0:
-                premium_level = "warning"
-                premium_advice = "偏高"
-            elif est_premium < 15.0:
-                premium_level = "danger"
-                premium_advice = "高危"
-            else:
-                premium_level = "bubble"
-                premium_advice = "泡沫"
         # 4. 数据缺失
         else:
             val_status = "missing_nav"
             status_desc = "官方IOPV与净值数据缺失"
             est_realtime = None
             est_premium = None
-            premium_level = "none"
-            premium_advice = "--"
 
         result = {
             "code": code,
@@ -878,8 +843,6 @@ def get_market_data():
             "amount_wan": amount_wan,
             "amount_str": amount_str,
             "volume_hand": volume_hand,
-            "premium_level": premium_level,
-            "premium_advice": premium_advice,
             "open": open_price,
             "high": high_price,
             "low": low_price,

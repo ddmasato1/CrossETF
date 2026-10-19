@@ -8,7 +8,7 @@ CrossETF 核心逻辑与验收测试脚本
 3. 单只与全部行情缺失
 4. 期货或汇率缺失（NQ、ES 分别缺失，汇率缺失影响两者，缺少基准值不假装正常）
 5. 零成交量但有效价格
-6. 行业 ETF 保守处理（不输出估值与评级）
+6. 行业 ETF 保守处理（不输出估值）
 7. 排序沉底（升序沉底、降序沉底）
 8. 全无效时均值与极值输出 None
 9. 移动端核心卡片与桌面表格并存
@@ -223,6 +223,9 @@ def run_tests():
     for marker in required_mobile_markers:
         assert marker in index_html, f"移动端结构缺少关键标记: {marker}"
 
+    assert 'premium_level' not in index_html and 'premium_advice' not in index_html, "页面不应再展示 ETF 溢价评级或建议"
+    assert '>建议</th>' not in index_html, "桌面列表不应保留 ETF 建议列"
+
     assert index_html.count('hidden sm:block bg-white border') >= 2, "核心与行业桌面表格必须在 sm 断点保留"
     assert 'role="dialog" aria-modal="true"' in index_html, "历史档案必须提供 dialog 语义"
     assert ':aria-expanded="showKnowledge"' in index_html, "风控折叠区必须暴露展开状态"
@@ -243,10 +246,12 @@ def run_tests():
         "dates": ["2026-09-01", "invalid", "2026-09-18", "2026-10-16"],
         "values": [60, 30, 46.24, 17.86],
         "asOf": "2026-10-16T23:59:49+00:00",
+        "indicators": {"market_momentum": 99, "safe_haven_demand": 1},
     })
     assert normalized["score"] == 17.9 and normalized["rating"] == "extreme_fear"
     assert [point["date"] for point in normalized["history"]] == ["2026-09-18", "2026-10-16"], "必须按最新数据日截取30个自然日"
     assert normalized["as_of"] == "2026-10-16T23:59:49+00:00"
+    assert "indicators" not in normalized, "组成指标不得进入标准化响应"
 
     try:
         server.normalize_fear_greed_payload({"dates": ["2026-10-16"], "values": []})
@@ -341,6 +346,15 @@ def run_tests():
     ]
     for marker in required_fear_greed_markers:
         assert marker in index_html, f"正式情绪模块缺少关键标记: {marker}"
+    fixed_explanations = [
+        ("extreme_fear", "市场避险情绪很强", "组成指数的多项信号通常明显偏向防御"),
+        ("fear", "市场情绪偏谨慎", "市场动能和资金风险偏好有所减弱"),
+        ("neutral", "市场情绪相对均衡", "组成指数中的恐惧与贪婪信号大致平衡"),
+        ("greed", "市场风险偏好较高", "市场动能和广度较强"),
+        ("extreme_greed", "市场追涨情绪很强", "上涨动能、创新高股票和风险资产需求较强"),
+    ]
+    for rating, title, body in fixed_explanations:
+        assert f"{rating}: {{" in index_html and title in index_html and body in index_html, f"{rating} 固定解释缺失或未独立定义"
     print("✅ 测试 9 通过: 恐惧贪婪指数解析、缓存降级、并发与 ETF 接口隔离")
 
     print("=" * 60)

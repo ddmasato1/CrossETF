@@ -417,14 +417,14 @@
   <script>
     const datasets = {
       nasdaq: [
-        { code: '513390', name: '纳指100ETF博时', premium: '+10.92%', change: '+0.56%', price: '2.497', fee: '0.65%', iopv: '2.2512', nav: '2.2431', amount: '8.46 亿', market: 'SH', index: '纳斯达克 100', advice: '高危：当前溢价处于 10% 以上区间，避免追高。' },
-        { code: '159513', name: '纳斯达克100ETF大成', premium: '+10.93%', change: '+0.82%', price: '1.854', fee: '1.00%', iopv: '1.6713', nav: '1.6648', amount: '5.21 亿', market: 'SZ', index: '纳斯达克 100', advice: '高危：关注溢价收敛风险与盘口流动性。' },
-        { code: '513110', name: '纳指ETF华泰柏瑞', premium: '+10.95%', change: '+0.83%', price: '2.555', fee: '1.00%', iopv: '2.3028', nav: '2.2942', amount: '4.09 亿', market: 'SH', index: '纳斯达克 100', advice: '高危：当前价格明显高于 IOPV，仅作风险提示。' },
-        { code: '159632', name: '纳斯达克ETF华安', premium: '+11.50%', change: '+1.03%', price: '2.541', fee: '0.80%', iopv: '2.2790', nav: '2.2716', amount: '3.37 亿', market: 'SZ', index: '纳斯达克 100', advice: '高危：溢价超过 10%，谨慎参与场内交易。' }
+        { code: '513390', name: '纳指100ETF博时', premium: '+10.92%', change: '+0.56%', price: '2.497', fee: '0.65%', iopv: '2.2512', nav: '2.2431', amount: '8.46 亿', market: 'SH', index: '纳斯达克 100' },
+        { code: '159513', name: '纳斯达克100ETF大成', premium: '+10.93%', change: '+0.82%', price: '1.854', fee: '1.00%', iopv: '1.6713', nav: '1.6648', amount: '5.21 亿', market: 'SZ', index: '纳斯达克 100' },
+        { code: '513110', name: '纳指ETF华泰柏瑞', premium: '+10.95%', change: '+0.83%', price: '2.555', fee: '1.00%', iopv: '2.3028', nav: '2.2942', amount: '4.09 亿', market: 'SH', index: '纳斯达克 100' },
+        { code: '159632', name: '纳斯达克ETF华安', premium: '+11.50%', change: '+1.03%', price: '2.541', fee: '0.80%', iopv: '2.2790', nav: '2.2716', amount: '3.37 亿', market: 'SZ', index: '纳斯达克 100' }
       ],
       sp500: [
-        { code: '159655', name: '标普500ETF华夏', premium: '+7.11%', change: '+0.44%', price: '1.602', fee: '0.75%', iopv: '1.4957', nav: '1.4918', amount: '2.78 亿', market: 'SZ', index: '标普 500', advice: '偏高：建议结合交易成本和溢价回落风险判断。' },
-        { code: '513500', name: '标普500ETF博时', premium: '+7.68%', change: '+0.62%', price: '2.116', fee: '0.80%', iopv: '1.9651', nav: '1.9597', amount: '6.12 亿', market: 'SH', index: '标普 500', advice: '偏高：当前溢价高于温和区间，避免盲目追价。' }
+        { code: '159655', name: '标普500ETF华夏', premium: '+7.11%', change: '+0.44%', price: '1.602', fee: '0.75%', iopv: '1.4957', nav: '1.4918', amount: '2.78 亿', market: 'SZ', index: '标普 500' },
+        { code: '513500', name: '标普500ETF博时', premium: '+7.68%', change: '+0.62%', price: '2.116', fee: '0.80%', iopv: '1.9651', nav: '1.9597', amount: '6.12 亿', market: 'SH', index: '标普 500' }
       ]
     };
 
@@ -463,7 +463,6 @@
                 <div><dt>市场</dt><dd>${item.market}</dd></div>
                 <div><dt>跟踪指数</dt><dd>${item.index}</dd></div>
               </dl>
-              <div class="advice">${item.advice}</div>
             </div>
           </div>
         </article>`;
