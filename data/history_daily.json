@@ -256,5 +256,263 @@
         "amount_wan": 48622.0
       }
     ]
+  },
+  "2026-10-19": {
+    "date": "2026-10-19",
+    "archive_time": "2026-10-19 15:02:00",
+    "macro": {
+      "nasdaq_avg_premium": 15.37,
+      "sp500_avg_premium": 8.61,
+      "nasdaq_best": {
+        "code": "159513",
+        "name": "纳斯达克100ETF大成",
+        "premium": 12.39,
+        "close": 1.831,
+        "iopv": 1.6291
+      },
+      "sp500_best": {
+        "code": "513650",
+        "name": "标普500ETF南方",
+        "premium": 7.81,
+        "close": 2.0,
+        "iopv": 1.8552
+      }
+    },
+    "etfs": [
+      {
+        "code": "159513",
+        "name": "纳斯达克100ETF大成",
+        "category": "nasdaq100",
+        "close": 1.831,
+        "open": 1.835,
+        "high": 1.85,
+        "low": 1.817,
+        "iopv": 1.6291,
+        "premium": 12.39,
+        "change_pct": -1.24,
+        "amount_wan": 22934.0
+      },
+      {
+        "code": "513390",
+        "name": "纳指100ETF博时",
+        "category": "nasdaq100",
+        "close": 2.466,
+        "open": 2.453,
+        "high": 2.471,
+        "low": 2.449,
+        "iopv": 2.1939,
+        "premium": 12.4,
+        "change_pct": -1.24,
+        "amount_wan": 58909.0
+      },
+      {
+        "code": "513110",
+        "name": "纳指ETF华泰柏瑞",
+        "category": "nasdaq100",
+        "close": 2.525,
+        "open": 2.519,
+        "high": 2.527,
+        "low": 2.51,
+        "iopv": 2.2442,
+        "premium": 12.51,
+        "change_pct": -1.17,
+        "amount_wan": 28799.0
+      },
+      {
+        "code": "159632",
+        "name": "纳斯达克ETF华安",
+        "category": "nasdaq100",
+        "close": 2.516,
+        "open": 2.505,
+        "high": 2.523,
+        "low": 2.495,
+        "iopv": 2.2208,
+        "premium": 13.29,
+        "change_pct": -0.98,
+        "amount_wan": 22953.0
+      },
+      {
+        "code": "159660",
+        "name": "纳指ETF汇添富",
+        "category": "nasdaq100",
+        "close": 2.437,
+        "open": 2.439,
+        "high": 2.45,
+        "low": 2.421,
+        "iopv": 2.1358,
+        "premium": 14.1,
+        "change_pct": -1.22,
+        "amount_wan": 18209.0
+      },
+      {
+        "code": "513870",
+        "name": "纳指ETF富国",
+        "category": "nasdaq100",
+        "close": 2.128,
+        "open": 2.105,
+        "high": 2.134,
+        "low": 2.105,
+        "iopv": 1.8614,
+        "premium": 14.32,
+        "change_pct": -0.79,
+        "amount_wan": 12355.0
+      },
+      {
+        "code": "513300",
+        "name": "纳斯达克ETF华夏",
+        "category": "nasdaq100",
+        "close": 2.786,
+        "open": 2.785,
+        "high": 2.793,
+        "low": 2.761,
+        "iopv": 2.4286,
+        "premium": 14.72,
+        "change_pct": -0.85,
+        "amount_wan": 36009.0
+      },
+      {
+        "code": "159659",
+        "name": "纳斯达克100ETF招商",
+        "category": "nasdaq100",
+        "close": 2.453,
+        "open": 2.45,
+        "high": 2.46,
+        "low": 2.425,
+        "iopv": 2.1126,
+        "premium": 16.11,
+        "change_pct": -0.73,
+        "amount_wan": 21921.0
+      },
+      {
+        "code": "159696",
+        "name": "纳指ETF易方达",
+        "category": "nasdaq100",
+        "close": 2.142,
+        "open": 2.126,
+        "high": 2.15,
+        "low": 2.126,
+        "iopv": 1.8203,
+        "premium": 17.67,
+        "change_pct": -1.2,
+        "amount_wan": 12979.0
+      },
+      {
+        "code": "159941",
+        "name": "纳指ETF广发",
+        "category": "nasdaq100",
+        "close": 1.723,
+        "open": 1.721,
+        "high": 1.726,
+        "low": 1.709,
+        "iopv": 1.4624,
+        "premium": 17.82,
+        "change_pct": -0.86,
+        "amount_wan": 106607.0
+      },
+      {
+        "code": "159501",
+        "name": "纳指ETF嘉实",
+        "category": "nasdaq100",
+        "close": 2.187,
+        "open": 2.186,
+        "high": 2.198,
+        "low": 2.178,
+        "iopv": 1.8361,
+        "premium": 19.11,
+        "change_pct": -0.91,
+        "amount_wan": 15334.0
+      },
+      {
+        "code": "513100",
+        "name": "纳指ETF国泰",
+        "category": "nasdaq100",
+        "close": 2.345,
+        "open": 2.332,
+        "high": 2.346,
+        "low": 2.318,
+        "iopv": 1.9541,
+        "premium": 20.0,
+        "change_pct": -0.47,
+        "amount_wan": 46204.0
+      },
+      {
+        "code": "513290",
+        "name": "纳指生物科技ETF汇添富",
+        "category": "nasdaq_tech",
+        "close": 1.748,
+        "open": 1.721,
+        "high": 1.751,
+        "low": 1.718,
+        "iopv": 1.6442,
+        "premium": 6.31,
+        "change_pct": -0.23,
+        "amount_wan": 16856.0
+      },
+      {
+        "code": "159509",
+        "name": "纳指科技ETF景顺",
+        "category": "nasdaq_tech",
+        "close": 3.217,
+        "open": 3.202,
+        "high": 3.245,
+        "low": 3.155,
+        "iopv": 2.2531,
+        "premium": 42.78,
+        "change_pct": -1.08,
+        "amount_wan": 220803.0
+      },
+      {
+        "code": "513650",
+        "name": "标普500ETF南方",
+        "category": "sp500",
+        "close": 2.0,
+        "open": 1.995,
+        "high": 2.006,
+        "low": 1.991,
+        "iopv": 1.8552,
+        "premium": 7.81,
+        "change_pct": -0.55,
+        "amount_wan": 47779.0
+      },
+      {
+        "code": "159655",
+        "name": "标普500ETF华夏",
+        "category": "sp500",
+        "close": 2.018,
+        "open": 2.009,
+        "high": 2.022,
+        "low": 2.003,
+        "iopv": 1.8659,
+        "premium": 8.15,
+        "change_pct": -0.2,
+        "amount_wan": 10883.0
+      },
+      {
+        "code": "159612",
+        "name": "标普500ETF国泰",
+        "category": "sp500",
+        "close": 2.077,
+        "open": 2.084,
+        "high": 2.084,
+        "low": 2.068,
+        "iopv": 1.9119,
+        "premium": 8.64,
+        "change_pct": -0.48,
+        "amount_wan": 3070.0
+      },
+      {
+        "code": "513500",
+        "name": "标普500ETF博时",
+        "category": "sp500",
+        "close": 2.677,
+        "open": 2.663,
+        "high": 2.679,
+        "low": 2.65,
+        "iopv": 2.437,
+        "premium": 9.85,
+        "change_pct": -0.07,
+        "amount_wan": 26686.0
+      }
+    ]
   }
 }

@@ -20,7 +20,7 @@ import threading
 from datetime import datetime, timedelta
 
 # 基础配置
-APP_VERSION = "v1.5.1"
+APP_VERSION = "v1.5.2"
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
 FEAR_GREED_URL = "https://feargreedflow.com/api/fear-greed"
