@@ -16,6 +16,7 @@ from socketserver import ThreadingMixIn
 import os
 import sys
 import re
+import shutil
 import threading
 from datetime import datetime, timedelta
 
@@ -37,8 +38,15 @@ FEAR_GREED_CACHE_FILE = os.path.join(DATA_DIR, "fear_greed_cache.json")
 
 
 def ensure_data_storage():
-    """确保持久化数据目录存在"""
+    """确保持久化数据目录存在，且冷启动时由种子模板初始化历史数据"""
     os.makedirs(DATA_DIR, exist_ok=True)
+    example_file = os.path.join(DATA_DIR, "history_daily.json.example")
+    if not os.path.exists(HISTORY_FILE) and os.path.exists(example_file):
+        try:
+            shutil.copyfile(example_file, HISTORY_FILE)
+            print(f"[Init] 已从种子文件初始化收盘历史档案: {os.path.basename(HISTORY_FILE)}", flush=True)
+        except Exception as e:
+            print(f"[Warning] Failed to initialize history from example: {e}", file=sys.stderr)
 
 
 # 跨境 ETF 官方真实综合运作年费率字典（管理费 + 托管费，按日从基金净值计提）

@@ -23,7 +23,9 @@ venv/
 *.log
 scratch/
 
-# Runtime caches
+# Runtime caches and data
 data/nasdaq_symbols_cache.json
 data/fear_greed_cache.json
 data/fear_greed_cache.json.tmp
+data/history_daily.json
+data/history_daily.json.tmp

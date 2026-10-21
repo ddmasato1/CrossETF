@@ -49,7 +49,8 @@
   - [`server.py`](server.py)：服务端主程序。内置标的动态发现、行情聚合、`/api/history` 查询与后台自主采集守护线程 `daily_collector_daemon`。
   - [`static/index.html`](static/index.html)：单页面前端。集成响应式 ETF 卡片/桌面表格、换仓测算器、版本徽章及每日收盘历史感知弹窗。
   - [`data/`](data/)：**核心持久化数据目录**。
-    - `data/history_daily.json`：业务收盘档案，记录每日全市场宏观中枢与 ETF 量价数据。
+    - `data/history_daily.json`：生产收盘档案，记录每日全市场宏观中枢与 ETF 量价数据；已被 `.gitignore` 排除，不入库。
+    - `data/history_daily.json.example`：冷启动初始种子模板，入库跟踪；首次无数据时自动初始化。
     - `data/nasdaq_symbols_cache.json`：天天基金在线扫描生成的可再生成运行缓存；被 `.gitignore` 忽略，不提交。
     - `data/fear_greed_cache.json`：恐惧贪婪指数最后有效数据的可再生成运行缓存；被 `.gitignore` 忽略，不提交。
   - [`docker-compose.yml`](docker-compose.yml)：容器部署编排，挂载 `./data:/app/data`，端口 `8000:8000`。
@@ -71,7 +72,9 @@
    - 每个工作日（周一至周五）**15:02 ~ 15:30** 期间每分钟巡检一次。
    - 即使数周无人访问网页，只要后台程序在跑，系统也会自主抓取收盘行情并落盘，**绝不漏采**。单日严格只写一次（幂等）。
 3. **数据与缓存边界 (Business Data and Runtime Caches)**：
-   - `history_daily.json` 是业务收盘档案；`nasdaq_symbols_cache.json` 与 `fear_greed_cache.json` 是可再生成的运行缓存，均位于 `data/`，后两者由 `.gitignore` 排除，不得提交、暂存或回退。
+   - `history_daily.json` 是生产收盘档案，已从 Git 中彻底解耦并由 `.gitignore` 排除，杜绝常驻服务器更新拉取冲突；
+   - 仓库提供 `history_daily.json.example` 作为种子模板，`ensure_data_storage()` 在首次部署时若文件不存在会自动从模板复制；
+   - `nasdaq_symbols_cache.json` 与 `fear_greed_cache.json` 是可再生成的运行缓存，均由 `.gitignore` 排除，不得提交、暂存或回退。
    - Docker 镜像构建与本地运行均使用挂载的 `data/` 目录保存业务档案和本地运行缓存。
 4. **沙箱与外网访问**：
    - 在本助手的终端沙箱中，直接网络调用（拉取行情、`git push`）需按规则使用 `BypassSandbox: true`。
@@ -141,7 +144,8 @@ gh repo view
 - **本轮已完成**：
   1. 盘中 ETF 停复牌状态动态感知（基于腾讯行情 `fields[40]`，精准透出 `is_suspended`）；
   2. 桌面端表格与移动端卡片新增轻量醒目的 `临时停牌` 琥珀色微型徽章，10:30 自动复牌后自适应消除；
-  3. 全量 10 项回归单元测试 100% 验证通过。
+  3. 彻底将生产收盘档案 `data/history_daily.json` 移出版本库并加入 `.gitignore`，新增 `data/history_daily.json.example` 种子模板支持冷启动自动初始化，永久根治服务器常驻环境 `git pull` 冲突；
+  4. 全量 10 项回归单元测试 100% 验证通过。
 - **隔离边界**：停牌状态不污染 `history_daily.json` 收盘归档；不阻断 IOPV 溢价率计算与原有排序逻辑。
 - **验证基线**：`python3 test_review_criteria.py` 为 10/10 通过；`git diff --check` 通过；实盘停牌数据校验通过。
 - **运行数据**：`data/fear_greed_cache.json` 与 `data/nasdaq_symbols_cache.json` 均为可再生成且被忽略的运行缓存；在线扫描会生成或刷新标的池缓存。接手 Agent 不得提交、暂存或回退这些文件；首次启动无网且无标的池缓存时，服务会使用代码内置的 `DEFAULT_*` 标的池。
