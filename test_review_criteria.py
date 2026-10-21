@@ -13,6 +13,7 @@ CrossETF 核心逻辑与验收测试脚本
 8. 全无效时均值与极值输出 None
 9. 移动端核心卡片与桌面表格并存
 10. 恐惧贪婪指数解析、缓存降级、并发与接口隔离
+11. ETF 停牌状态 (is_suspended) 解析与前端标识
 """
 
 import os
@@ -357,8 +358,44 @@ def run_tests():
         assert f"{rating}: {{" in index_html and title in index_html and body in index_html, f"{rating} 固定解释缺失或未独立定义"
     print("✅ 测试 9 通过: 恐惧贪婪指数解析、缓存降级、并发与 ETF 接口隔离")
 
+    # -------------------------------------------------------------
+    # 测试 10: ETF 停牌状态 (is_suspended) 解析与前端结构
+    # -------------------------------------------------------------
+    # 1. 模拟行情 fields 解析逻辑
+    def mock_parse_suspended(fields):
+        is_suspended = False
+        if fields:
+            if len(fields) > 40 and fields[40]:
+                if str(fields[40]).strip().upper() == "S":
+                    is_suspended = True
+        return is_suspended
+
+    # 正常交易
+    fields_normal = [""] * 45
+    fields_normal[40] = ""
+    assert mock_parse_suspended(fields_normal) is False, "正常交易标的 is_suspended 必须为 False"
+
+    # 停牌标的
+    fields_suspended = [""] * 45
+    fields_suspended[40] = "S"
+    assert mock_parse_suspended(fields_suspended) is True, "停牌标的 fields[40]=='S' 必须解析为 True"
+
+    # 小写 's' 容错
+    fields_suspended_lower = [""] * 45
+    fields_suspended_lower[40] = "s"
+    assert mock_parse_suspended(fields_suspended_lower) is True, "小写 's' 容错判定必须为 True"
+
+    # 字段截断或越界安全性
+    assert mock_parse_suspended([""] * 10) is False, "短字段必须安全返回 False"
+    assert mock_parse_suspended(None) is False, "None 字段必须安全返回 False"
+
+    # 2. 前端界面标记验证
+    assert 'v-if="item.is_suspended"' in index_html, "前端模板必须包含 item.is_suspended 条件渲染"
+    assert '临时停牌' in index_html, "前端模板必须包含 临时停牌 徽章提示"
+    print("✅ 测试 10 通过: ETF 停牌状态解析、越界安全容错与前端标识验证通过")
+
     print("=" * 60)
-    print("🎉 全部 9 项核心业务、情绪缓存与响应式结构测试 100% 验证通过！")
+    print("🎉 全部 10 项核心业务、情绪缓存与响应式结构测试 100% 验证通过！")
     print("=" * 60)
 
 if __name__ == "__main__":

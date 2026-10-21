@@ -656,8 +656,11 @@
             :aria-controls="'etf-details-' + item.code"
             class="w-full min-h-20 grid grid-cols-[minmax(0,1.45fr)_minmax(66px,.85fr)_minmax(52px,.7fr)_minmax(48px,.62fr)] items-center gap-1.5 px-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500">
             <span class="min-w-0">
-              <span class="block font-mono font-black text-base tracking-wide text-slate-900 dark:text-white">{{ item.code }}</span>
-              <span class="block mt-1.5 text-xs leading-tight text-slate-500 dark:text-slate-400 break-words">{{ item.name }}</span>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-mono font-black text-base tracking-wide text-slate-900 dark:text-white">{{ item.code }}</span>
+                <span v-if="item.is_suspended" class="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 leading-none">临时停牌</span>
+              </div>
+              <span class="block mt-1 text-xs leading-tight text-slate-500 dark:text-slate-400 break-words">{{ item.name }}</span>
             </span>
             <span class="text-right">
               <span class="block text-[10px] text-slate-400 dark:text-slate-500">实时溢价</span>
@@ -758,6 +761,7 @@
                 <td class="py-2.5 px-3">
                   <div class="flex items-center gap-2">
                     <span class="font-mono font-bold text-slate-900 dark:text-white text-base sm:text-lg tracking-wide">{{ item.code }}</span>
+                    <span v-if="item.is_suspended" class="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 leading-none">临时停牌</span>
                   </div>
                   <div class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     <span>{{ item.name }}</span>
@@ -838,8 +842,11 @@
             :aria-controls="'etf-details-' + item.code"
             class="w-full min-h-20 grid grid-cols-[minmax(0,1.45fr)_minmax(66px,.85fr)_minmax(52px,.7fr)_minmax(48px,.62fr)] items-center gap-1.5 px-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500">
             <span class="min-w-0">
-              <span class="block font-mono font-black text-base tracking-wide text-slate-900 dark:text-white">{{ item.code }}</span>
-              <span class="block mt-1.5 text-xs leading-tight text-slate-500 dark:text-slate-400 break-words">{{ item.name }}</span>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-mono font-black text-base tracking-wide text-slate-900 dark:text-white">{{ item.code }}</span>
+                <span v-if="item.is_suspended" class="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 leading-none">临时停牌</span>
+              </div>
+              <span class="block mt-1 text-xs leading-tight text-slate-500 dark:text-slate-400 break-words">{{ item.name }}</span>
             </span>
             <span class="text-right">
               <span class="block text-[10px] text-slate-400 dark:text-slate-500">实时溢价</span>
@@ -896,6 +903,7 @@
                 <td class="py-2.5 px-3">
                   <div class="flex items-center gap-2">
                     <span class="font-mono font-bold text-slate-900 dark:text-white text-base tracking-wide">{{ item.code }}</span>
+                    <span v-if="item.is_suspended" class="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 leading-none">临时停牌</span>
                   </div>
                   <div class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     <span>{{ item.name }}</span>
@@ -1208,7 +1216,7 @@
         });
 
         // 系统版本号
-        const appVersion = ref('v1.5.2');
+        const appVersion = ref('v1.5.4');
 
         // 独立市场情绪状态：与 ETF 行情、排序和归档完全隔离。
         const fearGreed = ref(null);

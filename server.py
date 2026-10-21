@@ -20,7 +20,7 @@ import threading
 from datetime import datetime, timedelta
 
 # 基础配置
-APP_VERSION = "v1.5.2"
+APP_VERSION = "v1.5.4"
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
 FEAR_GREED_URL = "https://feargreedflow.com/api/fear-greed"
@@ -726,9 +726,15 @@ def get_market_data():
         high_price = None
         low_price = None
         trade_time = ""
+        is_suspended = False
 
         if fields:
             try:
+                # 停牌状态：fields[40] 为 'S' 表示停牌/临时停牌
+                if len(fields) > 40 and fields[40]:
+                    if str(fields[40]).strip().upper() == "S":
+                        is_suspended = True
+
                 # 价格解析：只有价格为有限正数才有效，零成交量不阻断有效价格
                 if len(fields) > 3 and fields[3]:
                     p = float(fields[3])
@@ -832,6 +838,7 @@ def get_market_data():
             "index_name": index_name,
             "val_status": val_status,
             "status_desc": status_desc,
+            "is_suspended": is_suspended,
             "price": price,
             "change": change,
             "change_pct": change_pct,
