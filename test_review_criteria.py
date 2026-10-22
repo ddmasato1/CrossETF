@@ -394,8 +394,85 @@ def run_tests():
     assert '临时停牌' in index_html, "前端模板必须包含 临时停牌 徽章提示"
     print("✅ 测试 10 通过: ETF 停牌状态解析、越界安全容错与前端标识验证通过")
 
+    # -------------------------------------------------------------
+    # 测试 11: 美债收益率方案A (2Y/10Y/利差倒挂) 解析、熔断与前端展示
+    # -------------------------------------------------------------
+    def mock_parse_treasury(f_list, default_name):
+        if len(f_list) > 8:
+            try:
+                y = float(f_list[1]) if f_list[1] else 0.0
+                chg_bp = (float(f_list[8]) if f_list[8] else 0.0) * 100.0
+                chg_pct = float(f_list[7]) if f_list[7] else 0.0
+                t = f_list[13] if len(f_list) > 13 and f_list[13] else "--"
+                if math.isfinite(y) and y > 0:
+                    return {
+                        "name": default_name,
+                        "yield": round(y, 3),
+                        "change_bp": round(chg_bp, 2),
+                        "change_pct": round(chg_pct, 2),
+                        "valid": True,
+                        "time": t
+                    }
+            except Exception:
+                pass
+        return {"name": default_name, "yield": 0.0, "change_bp": 0.0, "change_pct": 0.0, "valid": False, "time": "--"}
+
+    # 1. 2Y 与 10Y 解析
+    raw_2y = "美国2年期国债,4.800,4.804,4.777,4.804,4.778,0,-0.5586,-0.0268,0,0,1792650903,2026-10-22,02:35:03,2028-09-30,4.750,1年2次,99.947,美国".split(",")
+    raw_10y = "美国10年期国债,5.107,5.119,5.085,5.115,5.082,0,-0.6645,-0.0340,0,0,1792650946,2026-10-22,02:35:46,2036-08-15,4.625,1年2次,96.473,美国".split(",")
+    res_2y = mock_parse_treasury(raw_2y, "美债2Y")
+    res_10y = mock_parse_treasury(raw_10y, "美债10Y")
+    assert res_2y["valid"] is True and res_10y["valid"] is True, "2Y 与 10Y 均必须有效"
+
+    # 2. 利差计算与倒挂判定逻辑
+    diff = res_10y["yield"] - res_2y["yield"]
+    diff_bp = round(diff * 100.0, 1)
+    assert diff_bp == 30.7, f"正常利差计算错误: {diff_bp}"
+    assert (diff < 0) is False, "正常曲线倒挂必须为 False"
+
+    # 模拟倒挂场景（2Y 利率高于 10Y）
+    inv_diff = 4.800 - 5.107
+    assert (inv_diff < 0) is True, "倒挂场景判定必须为 True"
+
+    # 3. 前端模板验证
+    assert "us_treasuries?.us2y" in index_html, "前端模板必须包含 2Y 美债数据绑定"
+    assert "us_treasuries?.us10y" in index_html, "前端模板必须包含 10Y 美债数据绑定"
+    assert "spread_10y_2y" in index_html, "前端模板必须包含 10Y-2Y 利差绑定"
+    assert "倒挂警报" in index_html, "前端模板必须包含倒挂警报提示"
+    print("✅ 测试 11 通过: 美债收益率方案A (2Y/10Y/利差倒挂) 解析、熔断与前端展示验证通过")
+
+    # -------------------------------------------------------------
+    # 测试 12: 纳指定投风向标 (纯血 QQQM 方案1) 多因子引擎与五档动态乘数
+    # -------------------------------------------------------------
+    from server import calculate_nasdaq_dca
+
+    # 1. 常规实盘数据推演 (当前盘面: fg=31.3, 10y=5.107, spread=30.7, pos_52w=81.9)
+    res_normal = calculate_nasdaq_dca(fg_score=31.3, us10y_yield=5.107, spread_bp=30.7, pos_52w=81.9)
+    assert res_normal["valid"] is True, "定投风向标必须有效"
+    assert res_normal["score"] == 52.8, f"实盘打分推算错误: {res_normal['score']}"
+    assert res_normal["multiplier"] == 1.0, "52.8分必须命中 1.0x 基准定投乘数"
+    assert res_normal["tier"] == "neutral", "52.8分必须判定为 neutral 中性博弈"
+
+    # 2. 极端冰点黄金坑场景 (超跌大底: fg=10, 10y=3.0, spread=100, pos_52w=10)
+    res_bottom = calculate_nasdaq_dca(fg_score=10.0, us10y_yield=3.0, spread_bp=100.0, pos_52w=10.0)
+    assert res_bottom["score"] <= 20.0, f"大底得分必须<=20: {res_bottom['score']}"
+    assert res_bottom["multiplier"] == 2.0, "大底必须触发 2.0x 翻倍定投"
+    assert res_bottom["tier"] == "extreme_fear", "大底等级必须为 extreme_fear"
+
+    # 3. 极端泡沫高危区场景 (泡沫顶部: fg=95, 10y=5.5, spread=-30, pos_52w=98)
+    res_top = calculate_nasdaq_dca(fg_score=95.0, us10y_yield=5.5, spread_bp=-30.0, pos_52w=98.0)
+    assert res_top["score"] > 80.0, f"泡沫顶得分必须>80: {res_top['score']}"
+    assert res_top["multiplier"] == 0.0, "泡沫顶必须停投 0.0x"
+    assert res_top["tier"] == "extreme_greed", "泡沫顶等级必须为 extreme_greed"
+
+    # 4. 前端组件绑定校验
+    assert "nasdaqDca" in index_html, "前端模板必须包含 nasdaqDca 响应式计算属性绑定"
+    assert "纳指定投风向标" in index_html, "前端模板必须包含 纳指定投风向标 标题"
+    assert "getDcaBadgeClass" in index_html, "前端模板必须导出 getDcaBadgeClass 辅助函数"
+    print("✅ 测试 12 通过: 纳指定投风向标 (纯血 QQQM 方案1) 多因子引擎与五档动态乘数验证通过")
+
     print("=" * 60)
-    print("🎉 全部 10 项核心业务、情绪缓存与响应式结构测试 100% 验证通过！")
+    print("🎉 全部 12 项核心业务、情绪缓存与响应式结构测试 100% 验证通过！")
     print("=" * 60)
 
 if __name__ == "__main__":

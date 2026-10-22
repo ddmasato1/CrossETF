@@ -41,18 +41,19 @@
 
     .fear-greed-card {
       display: grid;
-      grid-template-columns: 176px minmax(0, 1fr);
-      gap: 18px;
-      margin-top: 10px;
-      padding: 18px;
-      border: 1px solid rgb(226 232 240 / .9);
-      border-radius: 14px;
-      background: white;
-      box-shadow: 0 1px 2px rgb(15 23 42 / .05);
+      grid-template-columns: 136px minmax(0, 1fr);
+      gap: 14px;
+      min-height: 190px;
+      margin-top: 0;
+      padding: 10px;
+      border: 1px solid rgb(226 232 240 / .8);
+      border-radius: 12px;
+      background: rgb(248 250 252 / .8);
+      box-shadow: 0 1px 2px rgb(15 23 42 / .03);
     }
     .dark .fear-greed-card {
       border-color: rgb(30 41 59 / .8);
-      background: rgb(15 23 42);
+      background: rgb(30 41 59 / .4);
     }
     .fear-greed-summary {
       display: flex;
@@ -71,13 +72,13 @@
       position: relative;
       display: flex;
       align-items: center;
-      gap: 10px;
-      width: min(100%, 160px);
-      margin-top: 8px;
+      gap: 6px;
+      width: min(100%, 136px);
+      margin-top: 2px;
     }
     .fear-greed-score {
-      font: 900 48px/.95 ui-monospace, SFMono-Regular, Menlo, monospace;
-      letter-spacing: -.06em;
+      font: 900 28px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: -.04em;
     }
     .fear-greed-tone-extreme-fear { color: #fb7185; }
     .fear-greed-tone-fear { color: #f97316; }
@@ -175,21 +176,21 @@
       font-weight: 600;
     }
     .fear-greed-temperature {
-      width: min(100%, 160px);
-      margin-top: 15px;
+      width: min(100%, 136px);
+      margin-top: 6px;
     }
     .fear-greed-temperature-track {
       position: relative;
       display: grid;
       grid-template-columns: 25fr 20fr 10fr 20fr 25fr;
       align-items: center;
-      gap: 3px;
-      height: 24px;
-      border-radius: 6px;
+      gap: 2px;
+      height: 14px;
+      border-radius: 4px;
       cursor: crosshair;
     }
     .fear-greed-temperature-segment {
-      height: 7px;
+      height: 4px;
       border-radius: 999px;
     }
     .fear-greed-temperature-segment:nth-child(1) { background: #be123c; }
@@ -199,10 +200,10 @@
     .fear-greed-temperature-segment:nth-child(5) { background: #059669; }
     .fear-greed-temperature-marker {
       position: absolute;
-      top: 4px;
-      width: 3px;
-      height: 17px;
-      border: 2px solid white;
+      top: 1px;
+      width: 2px;
+      height: 12px;
+      border: 1px solid white;
       border-radius: 999px;
       background: rgb(15 23 42);
       box-shadow: 0 0 0 1px rgb(15 23 42);
@@ -218,23 +219,23 @@
       position: absolute;
       z-index: 10;
       min-width: max-content;
-      padding: 6px 8px;
+      padding: 4px 6px;
       border: 1px solid rgb(203 213 225);
-      border-radius: 7px;
+      border-radius: 6px;
       background: rgb(248 250 252);
       color: rgb(30 41 59);
       font-size: 10px;
       font-weight: 750;
       line-height: 1.25;
-      box-shadow: 0 8px 24px rgb(15 23 42 / .18);
+      box-shadow: 0 6px 16px rgb(15 23 42 / .15);
       pointer-events: none;
       white-space: nowrap;
     }
-    .fear-greed-temperature-tooltip { bottom: 25px; }
+    .fear-greed-temperature-tooltip { bottom: 20px; }
     .fear-greed-temperature-labels {
       display: flex;
       justify-content: space-between;
-      margin-top: 7px;
+      margin-top: 3px;
       color: rgb(100 116 139);
       font-size: 9px;
     }
@@ -242,31 +243,32 @@
     .fear-greed-chart-panel {
       position: relative;
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-rows: auto 1fr;
       align-self: stretch;
       min-width: 0;
-      min-height: 150px;
+      min-height: 0;
     }
     .fear-greed-chart-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 8px;
+      gap: 6px;
+      margin-bottom: 2px;
     }
     .fear-greed-chart-title {
       color: rgb(30 41 59);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 800;
     }
     .dark .fear-greed-chart-title { color: rgb(241 245 249); }
     .fear-greed-chart-caption {
       color: rgb(100 116 139);
-      font-size: 10px;
+      font-size: 9px;
     }
     .fear-greed-canvas-wrap {
       position: relative;
-      min-height: 126px;
+      min-height: 130px;
+      height: 100%;
       overflow: hidden;
     }
     .fear-greed-canvas {
@@ -286,43 +288,16 @@
       font-size: 11px;
     }
 
-    @media (max-width: 640px) {
-      .fear-greed-card {
-        grid-template-columns: 160px minmax(0, 1fr);
-        gap: 12px;
-        padding: 14px;
-      }
-      .fear-greed-summary {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 10px 18px;
-      }
-      .fear-greed-temperature { margin-top: 2px; }
-      .fear-greed-score { font-size: 46px; }
-      .fear-greed-updated { margin-top: 7px; }
-      .fear-greed-chart-panel { min-height: 132px; }
-      .fear-greed-chart-head { gap: 6px; margin-bottom: 4px; }
-      .fear-greed-chart-title { font-size: 10px; white-space: nowrap; }
-      .fear-greed-chart-caption { display: none; }
-      .fear-greed-canvas-wrap { min-height: 112px; }
-    }
-
-    @media (max-width: 360px) {
-      .fear-greed-card {
-        grid-template-columns: 124px minmax(0, 1fr);
-        gap: 10px;
-        padding: 12px;
-      }
-      .fear-greed-score-line { gap: 6px; width: 124px; }
-      .fear-greed-score { font-size: 40px; }
-      .fear-greed-rating { padding: 4px 6px; font-size: 10px; }
-      .fear-greed-updated { font-size: 9px; }
-      .fear-greed-updated-item { gap: 3px; }
-      .fear-greed-updated-label { font-size: 8px; }
-      .fear-greed-temperature { width: 124px; }
-      .fear-greed-chart-title { font-size: 9px; }
-      .fear-greed-chart-panel { min-height: 124px; }
-      .fear-greed-canvas-wrap { min-height: 104px; }
+    .dca-card { min-height: 190px; }
+    .dca-factor-label { font-size: 10px; color: #64748b; }
+    .dark .dca-factor-label { color: #94a3b8; }
+    .dca-factor-value { margin-top: 3px; font-size: 13px; font-weight: 700; }
+    @media (max-width: 479px) {
+      .fear-greed-card { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+      .fear-greed-chart-panel { border-top: 1px solid #e2e8f0; padding-top: 10px; }
+      .dark .fear-greed-chart-panel { border-color: #334155; }
+      .fear-greed-summary { gap: 8px; }
+      .fear-greed-canvas-wrap { height: 130px; }
     }
   </style>
 </head>
@@ -356,14 +331,6 @@
           </svg>
           <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z" />
-          </svg>
-        </button>
-
-        <!-- 标的在线同步 -->
-        <button @click="syncSymbols" :disabled="syncing" aria-label="同步标的" title="在线重新检测天天基金全网代码库"
-          class="w-9 h-9 md:w-8 md:h-8 shrink-0 bg-white hover:bg-slate-50 text-cyan-600 border border-slate-200/90 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-cyan-400 dark:border-slate-800 disabled:opacity-50 disabled:cursor-wait rounded-lg transition-colors flex items-center justify-center shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500">
-          <svg :class="{'animate-spin': syncing}" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7v5h-5M4 17v-5h5m11-1a8 8 0 0 0-14.9-3M4 13a8 8 0 0 0 14.9 3" />
           </svg>
         </button>
 
@@ -486,139 +453,259 @@
       </div>
     </transition>
 
-    <!-- 宏观基准指示面板（紧凑型） -->
-    <section class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-3.5">
-      <!-- CME NQ 期货 -->
-      <div class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-lg p-2.5 shadow-sm">
-        <div class="flex items-center justify-between text-xs sm:text-[11px] text-slate-500 dark:text-slate-400">
-          <span>CME 纳指期货 (NQ)</span>
-          <span class="hidden sm:inline text-[10px] text-slate-400 dark:text-slate-500 font-tabular">{{ macro.cme_nq?.time || '--' }}</span>
-        </div>
-        <div class="mt-1 flex items-baseline justify-between">
-          <span class="text-base sm:text-lg font-bold font-tabular text-slate-900 dark:text-white">{{ formatNumber(macro.cme_nq?.price, 2) }}</span>
-          <span :class="getPriceChangeClass(macro.cme_nq?.change_pct)" class="text-xs font-bold font-tabular">
-            {{ formatPercentSign(macro.cme_nq?.change_pct) }}
-          </span>
-        </div>
-      </div>
-
-      <!-- CME ES 标普期货 -->
-      <div class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-lg p-2.5 shadow-sm">
-        <div class="flex items-center justify-between text-xs sm:text-[11px] text-slate-500 dark:text-slate-400">
-          <span>CME 标普期货 (ES)</span>
-          <span class="hidden sm:inline text-[10px] text-slate-400 dark:text-slate-500 font-tabular">{{ macro.cme_es?.time || '--' }}</span>
-        </div>
-        <div class="mt-1 flex items-baseline justify-between">
-          <span class="text-base sm:text-lg font-bold font-tabular text-slate-900 dark:text-white">{{ formatNumber(macro.cme_es?.price, 2) }}</span>
-          <span :class="getPriceChangeClass(macro.cme_es?.change_pct)" class="text-xs font-bold font-tabular">
-            {{ formatPercentSign(macro.cme_es?.change_pct) }}
-          </span>
-        </div>
-      </div>
-
-      <!-- 离岸汇率 USD/CNH -->
-      <div class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-lg p-2.5 shadow-sm">
-        <div class="flex items-center justify-between text-xs sm:text-[11px] text-slate-500 dark:text-slate-400">
-          <span>离岸汇率 (USD/CNH)</span>
-          <span class="hidden sm:inline text-[10px] text-slate-400 dark:text-slate-500 font-tabular">{{ macro.usd_cnh?.time || '--' }}</span>
-        </div>
-        <div class="mt-1 flex items-baseline justify-between">
-          <span class="text-base sm:text-lg font-bold font-tabular text-slate-900 dark:text-white">{{ formatNumber(macro.usd_cnh?.rate, 4) }}</span>
-          <span :class="getPriceChangeClass(macro.usd_cnh?.change_pct)" class="text-xs font-bold font-tabular">
-            {{ formatPercentSign(macro.usd_cnh?.change_pct) }}
-          </span>
-        </div>
-      </div>
-
-      <!-- 当前Tab对应的均溢价 -->
-      <div class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-lg p-2.5 shadow-sm">
-        <div class="flex items-center justify-between text-xs sm:text-[11px] text-slate-500 dark:text-slate-400">
-          <span>{{ activeTab === 'nasdaq' ? '纳指100' : '标普500' }}均溢价</span>
-          <span class="text-[10px] text-slate-400 dark:text-slate-500">{{ activeTabList.length }}只样本</span>
-        </div>
-        <div class="mt-1 flex items-baseline justify-between">
-          <span class="text-base sm:text-lg font-black font-tabular" :class="getPremiumTextColor(activeAvgPremium)">
-            {{ activeAvgPremium !== null && activeAvgPremium !== undefined ? ((activeAvgPremium > 0 ? '+' : '') + formatNumber(activeAvgPremium, 2) + '%') : '--' }}
-          </span>
-          <span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium font-tabular">
-            {{ activeScaleFactor ? '×' + activeScaleFactor : '--' }}
-          </span>
-        </div>
-      </div>
-    </section>
-
-    <!-- 独立市场情绪模块：不参与 ETF 估值、排序或历史归档 -->
-    <section class="fear-greed-card" aria-labelledby="fearGreedTitle" data-fear-greed-card>
-      <div class="fear-greed-summary">
-        <div>
-          <div id="fearGreedTitle" class="fear-greed-eyebrow flex items-center gap-2">
-            <span>恐惧贪婪指数</span>
-            <span v-if="fearGreed?.stale" class="rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:border-amber-700/70 dark:bg-amber-950/50 dark:text-amber-300">缓存数据</span>
+    <!-- 极简宏观与定投摘要指示条（默认折叠，高度 40px） -->
+    <section class="mt-3 bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-xl px-3.5 py-2 shadow-sm transition-all">
+      <div class="flex flex-wrap items-center justify-between gap-2.5 text-xs">
+        <!-- 左侧核心信号聚合 -->
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- 纳指定投核心信号 -->
+          <div class="flex items-center gap-1.5">
+            <span class="w-4 h-4 rounded bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400 flex items-center justify-center font-black text-[10px]">标</span>
+            <span class="font-bold text-slate-800 dark:text-slate-100">纳指定投:</span>
+            <strong class="font-black font-tabular text-slate-900 dark:text-white">{{ nasdaqDca.availableCount ? nasdaqDca.score + "分" : "--" }}</strong>
+            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold font-tabular shadow-xs" :class="getDcaBadgeClass(nasdaqDca.availableCount ? nasdaqDca.badgeColor : null)">
+              {{ nasdaqDca.availableCount ? nasdaqDca.action : "数据不足" }}
+            </span>
           </div>
-          <div class="fear-greed-score-line">
-            <strong class="fear-greed-score" :class="fearGreedTone">{{ fearGreed?.valid ? Math.round(fearGreed.score) : '--' }}</strong>
-            <button v-if="fearGreed?.valid" type="button"
-              class="fear-greed-rating" :class="[fearGreedTone, { 'is-open': fearGreedTipOpen }]"
-              :aria-expanded="fearGreedTipOpen" aria-describedby="fearGreedExplanation"
-              @click="fearGreedTipOpen = !fearGreedTipOpen" @blur="fearGreedTipOpen = false">
-              {{ fearGreed.rating_label }}
-              <span id="fearGreedExplanation" class="fear-greed-rating-tooltip" role="tooltip">
-                <strong>{{ fearGreedExplanation.title }}</strong>
-                {{ fearGreedExplanation.body }}
-              </span>
-            </button>
-            <span v-else class="text-xs font-bold text-slate-500 dark:text-slate-400">暂不可用</span>
+
+          <span class="text-slate-300 dark:text-slate-700 hidden sm:inline">|</span>
+
+          <!-- CME 纳指行情快照 -->
+          <div class="hidden sm:flex items-center gap-1 font-tabular">
+            <span class="text-slate-500">纳指期货:</span>
+            <span class="font-semibold text-slate-800 dark:text-slate-200">{{ formatNumber(macro.cme_nq?.price, 2) }}</span>
+            <span :class="getPriceChangeClass(macro.cme_nq?.change_pct)" class="font-bold">{{ formatPercentSign(macro.cme_nq?.change_pct) }}</span>
           </div>
-          <div class="fear-greed-updated">
-            <template v-if="fearGreed?.valid">
-              <span class="fear-greed-updated-item">
-                <span class="fear-greed-updated-label">数据时间</span>
-                <time class="fear-greed-updated-value" :datetime="fearGreed.as_of">{{ formatFearGreedTime(fearGreed.as_of) }}</time>
-              </span>
-              <span class="fear-greed-updated-item">
-                <span class="fear-greed-updated-label">最近拉取</span>
-                <time class="fear-greed-updated-value" :datetime="fearGreed.last_success_at">{{ formatFearGreedTime(fearGreed.last_success_at) }}</time>
-              </span>
-            </template>
-            <template v-else-if="fearGreedLoading">正在读取市场情绪…</template>
-            <template v-else>情绪数据暂不可用</template>
+
+          <span class="text-slate-300 dark:text-slate-700 hidden md:inline">|</span>
+
+          <!-- 10Y 美债与利差倒挂警报 -->
+          <div class="hidden md:flex items-center gap-1.5 font-tabular">
+            <span class="text-slate-500">10Y美债:</span>
+            <span class="font-semibold text-slate-800 dark:text-slate-200">{{ formatNumber(macro.us_treasuries?.us10y?.yield, 3) }}%</span>
+            <span v-if="macro.us_treasuries?.spread_10y_2y?.is_inverted" class="px-1.5 py-0.2 rounded bg-rose-500 text-white text-[10px] font-bold animate-pulse">倒挂警报</span>
+            <span v-else class="text-slate-400 text-[11px]">(利差 {{ formatBpSign(macro.us_treasuries?.spread_10y_2y?.spread_bp) }})</span>
+          </div>
+
+          <span class="text-slate-300 dark:text-slate-700 hidden lg:inline">|</span>
+
+          <!-- CNN 情绪快照 -->
+          <div class="hidden lg:flex items-center gap-1 font-tabular">
+            <span class="text-slate-500">情绪:</span>
+            <span class="font-bold" :class="fearGreedTone">{{ fearGreed?.valid ? Math.round(fearGreed.score) : "--" }} {{ fearGreed?.rating_label || "" }}</span>
           </div>
         </div>
 
-        <div class="fear-greed-temperature" :aria-label="fearGreed?.valid ? `市场情绪温度：${fearGreed.score}分，${fearGreed.rating_label}` : '市场情绪温度暂不可用'">
-          <div ref="fearGreedTemperatureTrack" class="fear-greed-temperature-track" tabindex="0" role="img"
-            aria-label="恐惧贪婪指数色温区间；低分代表恐惧，高分代表贪婪；移动鼠标可查看0到100对应数值"
-            @pointermove="onFearGreedTemperaturePointer" @pointerdown="onFearGreedTemperaturePointer"
-            @pointerleave="hideFearGreedTemperatureTip" @focus="showCurrentFearGreedTemperature" @blur="hideFearGreedTemperatureTip">
-            <span class="fear-greed-temperature-segment"></span>
-            <span class="fear-greed-temperature-segment"></span>
-            <span class="fear-greed-temperature-segment"></span>
-            <span class="fear-greed-temperature-segment"></span>
-            <span class="fear-greed-temperature-segment"></span>
-            <i v-if="fearGreed?.valid" class="fear-greed-temperature-marker" :style="{ left: `${fearGreed.score}%` }"></i>
-            <div v-if="fearGreedTemperatureTip.visible" class="fear-greed-floating-tooltip fear-greed-temperature-tooltip" role="tooltip"
-              :style="{ left: `${fearGreedTemperatureTip.left}%`, transform: fearGreedTemperatureTip.transform }">
-              {{ fearGreedTemperatureTip.value }} · {{ sentimentBand(fearGreedTemperatureTip.value) }}
+        <!-- 右侧展开/收起切换按钮 -->
+        <button @click="toggleMacroExpanded()" class="inline-flex shrink-0 whitespace-nowrap items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer select-none">
+          <span>{{ macroExpanded ? "关闭详情" : "展开详情" }}</span>
+        </button>
+      </div>
+
+      <!-- 展开详情面板 (平滑滑出) -->
+      <div v-show="macroExpanded" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 transition-all space-y-3">
+        <!-- 1. 宏观 6 列紧凑卡片 -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <!-- CME NQ -->
+          <div class="bg-slate-50/80 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-[11px] text-slate-500">
+              <span>CME 纳指</span>
+              <span class="text-[9px] text-slate-400 font-tabular">{{ macro.cme_nq?.time || "--" }}</span>
+            </div>
+            <div class="mt-0.5 flex items-baseline justify-between">
+              <span class="text-sm font-bold font-tabular text-slate-900 dark:text-white">{{ formatNumber(macro.cme_nq?.price, 2) }}</span>
+              <span :class="getPriceChangeClass(macro.cme_nq?.change_pct)" class="text-xs font-bold font-tabular">{{ formatPercentSign(macro.cme_nq?.change_pct) }}</span>
             </div>
           </div>
-          <div class="fear-greed-temperature-labels"><span>0 极度恐惧</span><span>100 极度贪婪</span></div>
-        </div>
-      </div>
 
-      <div class="fear-greed-chart-panel">
-        <div class="fear-greed-chart-head">
-          <span class="fear-greed-chart-title">最近30日情绪走势</span>
-          <span class="fear-greed-chart-caption">日级数据 · 0—100</span>
-        </div>
-        <div ref="fearGreedCanvasWrap" class="fear-greed-canvas-wrap">
-          <canvas ref="fearGreedCanvas" class="fear-greed-canvas" role="img"
-            :aria-label="fearGreedChartAria" @pointermove="onFearGreedChartPointer" @pointerleave="hideFearGreedChartTip"></canvas>
-          <div v-if="fearGreedChartTip.visible" class="fear-greed-floating-tooltip fear-greed-chart-tooltip" role="tooltip"
-            :style="{ left: `${fearGreedChartTip.x}px`, top: `${fearGreedChartTip.y}px` }">
-            <div>{{ formatFearGreedDate(fearGreedChartTip.date) }}</div>
-            <strong>{{ fearGreedChartTip.value }} · {{ sentimentBand(fearGreedChartTip.value) }}</strong>
+          <!-- CME ES -->
+          <div class="bg-slate-50/80 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-[11px] text-slate-500">
+              <span>CME 标普</span>
+              <span class="text-[9px] text-slate-400 font-tabular">{{ macro.cme_es?.time || "--" }}</span>
+            </div>
+            <div class="mt-0.5 flex items-baseline justify-between">
+              <span class="text-sm font-bold font-tabular text-slate-900 dark:text-white">{{ formatNumber(macro.cme_es?.price, 2) }}</span>
+              <span :class="getPriceChangeClass(macro.cme_es?.change_pct)" class="text-xs font-bold font-tabular">{{ formatPercentSign(macro.cme_es?.change_pct) }}</span>
+            </div>
           </div>
-          <div v-if="!fearGreed?.valid && !fearGreedLoading" class="fear-greed-empty">暂无可绘制数据</div>
+
+          <!-- USD/CNH -->
+          <div class="bg-slate-50/80 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-[11px] text-slate-500">
+              <span>离岸人民币</span>
+              <span class="text-[9px] text-slate-400 font-tabular">{{ macro.usd_cnh?.time || "--" }}</span>
+            </div>
+            <div class="mt-0.5 flex items-baseline justify-between">
+              <span class="text-sm font-bold font-tabular text-slate-900 dark:text-white">{{ formatNumber(macro.usd_cnh?.rate, 4) }}</span>
+              <span :class="getPriceChangeClass(macro.usd_cnh?.change_pct)" class="text-xs font-bold font-tabular">{{ formatPercentSign(macro.usd_cnh?.change_pct) }}</span>
+            </div>
+          </div>
+
+          <!-- 美债 2Y (政策) -->
+          <div class="bg-slate-50/80 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-[11px] text-slate-500">
+              <span>美债 2Y (政策)</span>
+              <span class="text-[9px] text-slate-400 font-tabular">{{ macro.us_treasuries?.us2y?.time || "--" }}</span>
+            </div>
+            <div class="mt-0.5 flex items-baseline justify-between">
+              <span class="text-sm font-bold font-tabular text-slate-900 dark:text-white">{{ formatNumber(macro.us_treasuries?.us2y?.yield, 3) }}%</span>
+              <span :class="getPriceChangeClass(macro.us_treasuries?.us2y?.change_bp)" class="text-xs font-bold font-tabular">{{ formatBpSign(macro.us_treasuries?.us2y?.change_bp) }}</span>
+            </div>
+          </div>
+
+          <!-- 美债 10Y (定价之锚) -->
+          <div class="bg-slate-50/80 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-[11px] text-slate-500">
+              <span>美债 10Y (锚)</span>
+              <span class="text-[9px] text-slate-400 font-tabular">{{ macro.us_treasuries?.us10y?.time || "--" }}</span>
+            </div>
+            <div class="mt-0.5 flex items-baseline justify-between">
+              <span class="text-sm font-bold font-tabular text-slate-900 dark:text-white">{{ formatNumber(macro.us_treasuries?.us10y?.yield, 3) }}%</span>
+              <span :class="getPriceChangeClass(macro.us_treasuries?.us10y?.change_bp)" class="text-xs font-bold font-tabular">{{ formatBpSign(macro.us_treasuries?.us10y?.change_bp) }}</span>
+            </div>
+          </div>
+
+          <!-- 10Y-2Y 利差 -->
+          <div class="bg-slate-50/80 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-[11px] text-slate-500">
+              <span>10Y-2Y 利差</span>
+              <span v-if="macro.us_treasuries?.spread_10y_2y?.is_inverted" class="px-1 py-0.2 rounded bg-rose-500 text-white text-[9px] font-bold animate-pulse">倒挂警报</span>
+              <span v-else class="text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold">正常利差</span>
+            </div>
+            <div class="mt-0.5 flex items-baseline justify-between">
+              <span class="text-sm font-bold font-tabular text-slate-900 dark:text-white">{{ formatBpSign(macro.us_treasuries?.spread_10y_2y?.spread_bp) }}</span>
+              <span class="text-[10px] text-slate-400 font-tabular">+0.31%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 并排双核：左半侧纳指定投风向标 (50%) + 右半侧独立市场情绪模块 (50%) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 pt-1 items-stretch">
+          <!-- 风向标：评分概览、因子组成、策略提示 -->
+          <section class="dca-card min-w-0 bg-slate-50/80 dark:bg-slate-800/40 rounded-xl p-3 flex flex-col gap-3 border border-slate-200/60 dark:border-slate-800/80" aria-labelledby="nasdaqDcaTitle" data-dca-card>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-1.5">
+                <span class="w-4 h-4 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400 flex items-center justify-center font-black text-[10px]">标</span>
+                <h3 id="nasdaqDcaTitle" class="text-xs font-bold text-slate-900 dark:text-slate-100">纳指定投风向标</h3>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] text-slate-500">综合风险分</span>
+                <strong class="text-xl font-black font-tabular text-slate-900 dark:text-white">{{ nasdaqDca.availableCount ? nasdaqDca.score : '--' }}</strong>
+                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold font-tabular" :class="getDcaBadgeClass(nasdaqDca.availableCount ? nasdaqDca.badgeColor : null)">
+                  {{ nasdaqDca.availableCount ? nasdaqDca.action : '数据不足' }}
+                </span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-x-4 gap-y-2 font-tabular" aria-label="评分因子组成">
+              <div>
+                <div class="dca-factor-label">市场情绪 · 35%</div>
+                <div class="dca-factor-value" :class="nasdaqDca.availability.sentiment ? fearGreedTone : 'text-slate-400'">{{ nasdaqDca.availability.sentiment ? (fearGreed.rating_label + ' ' + Math.round(nasdaqDca.factors.sentiment)) : '--' }}</div>
+              </div>
+              <div>
+                <div class="dca-factor-label">美债10Y · 30%</div>
+                <div class="dca-factor-value">{{ nasdaqDca.availability.yield ? formatNumber(nasdaqDca.factors.yieldVal, 3) + '%' : '--' }}</div>
+              </div>
+              <div>
+                <div class="dca-factor-label">QQQ 52周位置 · 20%</div>
+                <div class="dca-factor-value">{{ nasdaqDca.availability.pos52w ? formatNumber(nasdaqDca.factors.pos52w, 1) + '%' : '--' }}</div>
+              </div>
+              <div>
+                <div class="dca-factor-label">10Y−2Y利差 · 15%</div>
+                <div class="dca-factor-value" :class="nasdaqDca.availability.spread ? (nasdaqDca.factors.spreadBp < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400') : 'text-slate-400'">{{ nasdaqDca.availability.spread ? formatBpSign(nasdaqDca.factors.spreadBp) : '--' }}</div>
+              </div>
+            </div>
+
+            <div class="mt-auto rounded-lg px-2.5 py-2" :class="getDcaBadgeClass(nasdaqDca.availableCount ? nasdaqDca.badgeColor : null)" data-dca-guidance>
+              <div class="text-[10px] font-medium opacity-75">策略提示 · {{ nasdaqDca.availableCount ? nasdaqDca.tierLabel : '等待数据' }}</div>
+              <p class="mt-1 text-xs font-semibold leading-relaxed">{{ nasdaqDca.guidance }}</p>
+              <p v-if="nasdaqDca.availableCount > 0 && nasdaqDca.availableCount < 4" class="mt-1 text-[10px] leading-relaxed opacity-80">部分数据缺失，评分含中性代入</p>
+              <p v-if="nasdaqDca.availability.sentiment && fearGreed?.stale" class="mt-1 text-[10px] opacity-80">情绪因子使用缓存数据</p>
+            </div>
+          </section>
+
+          <!-- 右半边 (50%)：独立市场情绪模块 (横向两列：左分值色温，右30日走势折线图) -->
+          <section class="fear-greed-card items-stretch !p-3" aria-labelledby="fearGreedTitle" data-fear-greed-card>
+            <!-- 左列：分值、等级与色温条 -->
+            <div class="fear-greed-summary flex flex-col justify-between min-w-0 pr-0.5">
+              <div>
+                <div id="fearGreedTitle" class="fear-greed-eyebrow flex flex-wrap items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+                  <span class="w-4 h-4 rounded bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 flex items-center justify-center font-black text-[10px]">情</span>
+                  <span class="whitespace-nowrap">恐惧贪婪指数</span>
+                  <span v-if="fearGreed?.stale" class="whitespace-nowrap rounded-full border border-amber-300 bg-amber-50 px-1 py-0.2 text-[9px] font-bold text-amber-700 dark:border-amber-700/70 dark:bg-amber-950/50 dark:text-amber-300">缓存数据</span>
+                </div>
+                <div class="fear-greed-score-line !mt-1 !w-full">
+                  <strong class="fear-greed-score !text-2xl" :class="fearGreedTone">{{ fearGreed?.valid ? Math.round(fearGreed.score) : "--" }}</strong>
+                  <button v-if="fearGreed?.valid" type="button"
+                    class="fear-greed-rating !text-xs !py-0.5 !px-2" :class="[fearGreedTone, { 'is-open': fearGreedTipOpen }]"
+                    :aria-expanded="fearGreedTipOpen" aria-describedby="fearGreedExplanation"
+                    @click="fearGreedTipOpen = !fearGreedTipOpen" @blur="fearGreedTipOpen = false">
+                    {{ fearGreed.rating_label }}
+                    <span id="fearGreedExplanation" class="fear-greed-rating-tooltip" role="tooltip">
+                      <strong>{{ fearGreedExplanation.title }}</strong>
+                      {{ fearGreedExplanation.body }}
+                    </span>
+                  </button>
+                  <span v-else class="text-xs font-bold text-slate-500 dark:text-slate-400">暂不可用</span>
+                </div>
+              </div>
+
+              <!-- 色温计 -->
+              <div class="fear-greed-temperature !w-full !mt-1" :aria-label="fearGreed?.valid ? `市场情绪温度：${fearGreed.score}分，${fearGreed.rating_label}` : '市场情绪温度暂不可用'">
+                <div ref="fearGreedTemperatureTrack" class="fear-greed-temperature-track" tabindex="0" role="img"
+                  aria-label="恐惧贪婪指数色温区间；低分代表恐惧，高分代表贪婪；移动鼠标可查看0到100对应数值"
+                  @pointermove="onFearGreedTemperaturePointer" @pointerdown="onFearGreedTemperaturePointer"
+                  @pointerleave="hideFearGreedTemperatureTip" @focus="showCurrentFearGreedTemperature" @blur="hideFearGreedTemperatureTip">
+                  <span class="fear-greed-temperature-segment"></span>
+                  <span class="fear-greed-temperature-segment"></span>
+                  <span class="fear-greed-temperature-segment"></span>
+                  <span class="fear-greed-temperature-segment"></span>
+                  <span class="fear-greed-temperature-segment"></span>
+                  <i v-if="fearGreed?.valid" class="fear-greed-temperature-marker" :style="{ left: `${fearGreed.score}%` }"></i>
+                  <div v-if="fearGreedTemperatureTip.visible" class="fear-greed-floating-tooltip fear-greed-temperature-tooltip" role="tooltip"
+                    :style="{ left: `${fearGreedTemperatureTip.left}%`, transform: fearGreedTemperatureTip.transform }">
+                    {{ fearGreedTemperatureTip.value }} · {{ sentimentBand(fearGreedTemperatureTip.value) }}
+                  </div>
+                </div>
+                <div class="fear-greed-temperature-labels !mt-0.5 text-[9px] text-slate-400 flex justify-between"><span>0 极度恐惧</span><span>100 极度贪婪</span></div>
+              </div>
+
+              <!-- 上游数据时间与最近成功拉取时间分别展示 -->
+              <div class="fear-greed-updated !mt-1 font-tabular">
+                <template v-if="fearGreed?.valid">
+                  <span class="fear-greed-updated-item inline-flex items-baseline gap-1">
+                    <span class="fear-greed-updated-label">数据时间</span>
+                    <time class="fear-greed-updated-value text-[10px]" :datetime="fearGreed.as_of">{{ formatFearGreedTime(fearGreed.as_of) }}</time>
+                  </span>
+                  <span class="fear-greed-updated-item">
+                    <span class="fear-greed-updated-label">最近拉取</span>
+                    <time class="fear-greed-updated-value" :datetime="fearGreed.last_success_at">{{ formatFearGreedTime(fearGreed.last_success_at) }}</time>
+                  </span>
+                </template>
+                <template v-else-if="fearGreedLoading">正在读取市场情绪…</template>
+                <template v-else>情绪数据暂不可用</template>
+              </div>
+            </div>
+
+            <!-- 右列：30日情绪走势折线图 (横向在右侧) -->
+            <div class="fear-greed-chart-panel min-w-0">
+              <div class="fear-greed-chart-head flex items-center justify-between text-[11px] mb-0.5">
+                <span class="fear-greed-chart-title font-bold text-slate-800 dark:text-slate-200">30日情绪走势</span>
+                <span class="fear-greed-chart-caption text-[9px] text-slate-400 font-tabular">0—100</span>
+              </div>
+              <div ref="fearGreedCanvasWrap" class="fear-greed-canvas-wrap w-full">
+                <canvas ref="fearGreedCanvas" class="fear-greed-canvas absolute inset-0 w-full h-full" role="img"
+                  :aria-label="fearGreedChartAria" @pointermove="onFearGreedChartPointer" @pointerleave="hideFearGreedChartTip"></canvas>
+                <div v-if="fearGreedChartTip.visible" class="fear-greed-floating-tooltip fear-greed-chart-tooltip" role="tooltip"
+                  :style="{ left: `${fearGreedChartTip.x}px`, top: `${fearGreedChartTip.y}px` }">
+                  <div>{{ formatFearGreedDate(fearGreedChartTip.date) }}</div>
+                  <strong>{{ fearGreedChartTip.value }} · {{ sentimentBand(fearGreedChartTip.value) }}</strong>
+                </div>
+                <div v-if="!fearGreed?.valid && !fearGreedLoading" class="fear-greed-empty">暂无可绘制数据</div>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </section>
@@ -642,7 +729,6 @@
             class="min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
             标普500 ({{ sp500List.length }})
           </button>
-          <span class="col-span-2 text-xs text-slate-500 dark:text-slate-400 sm:ml-1">按{{ sortKey === 'est_premium' ? '溢价率' : sortKey }}{{ sortAsc ? '升序' : '降序' }}</span>
         </div>
 
       </div>
@@ -1056,6 +1142,24 @@
             <strong>计算口径</strong>：现价与 IOPV 有效时优先采用接口返回的 IOPV 溢价率，缺失时按现价与 IOPV 计算；IOPV 缺失而公布净值有效时，以公布净值回退计算。<br>
             <strong>核心局限</strong>：公布净值日期尚未核验，行情时刻也未严格对齐或识别过期数据；使用公布净值回退的结果与 IOPV 口径不同，解读排序和价差时需留意。
           </p>
+          <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div class="min-w-0">
+                <div class="font-semibold text-slate-700 dark:text-slate-200">标的池维护</div>
+                <p class="mt-1 text-slate-500 dark:text-slate-400">重新扫描天天基金ETF代码库，更新纳指与标普标的列表；日常查看行情使用顶部“刷新”即可。</p>
+              </div>
+              <button type="button" @click="syncSymbols" :disabled="syncing" :aria-busy="syncing" aria-label="同步标的" aria-describedby="symbol-sync-feedback"
+                class="self-start sm:self-auto inline-flex shrink-0 items-center justify-center gap-2 min-h-11 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-wait whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">
+                <svg :class="{'animate-spin': syncing}" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7v5h-5M4 17v-5h5m11-1a8 8 0 0 0-14.9-3M4 13a8 8 0 0 0 14.9 3" />
+                </svg>
+                {{ syncing ? '同步中…' : '同步标的' }}
+              </button>
+            </div>
+            <div id="symbol-sync-feedback" role="status" aria-live="polite" class="mt-2 text-xs text-slate-500 dark:text-slate-400 break-words">
+              <template v-if="syncFeedback">{{ syncFeedback.title }}：{{ syncFeedback.message }}</template>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -1150,6 +1254,19 @@
         const lastUpdated = ref('');
         const showKnowledge = ref(false);
 
+        // 宏观与情绪详情折叠状态：默认 false（折叠），支持 localStorage 记忆
+        const savedMacroExpanded = localStorage.getItem("nas_macro_expanded");
+        const macroExpanded = ref(savedMacroExpanded === "true");
+        const toggleMacroExpanded = () => {
+          macroExpanded.value = !macroExpanded.value;
+          localStorage.setItem("nas_macro_expanded", String(macroExpanded.value));
+          if (macroExpanded.value) {
+            nextTick(() => {
+              if (typeof drawFearGreedChart === "function") drawFearGreedChart();
+            });
+          }
+        };
+
         // 刷新间隔设置：默认 30s，仅支持：0(手动)、5、15、30、'custom'(自定义)
         const savedOption = localStorage.getItem('nas_refresh_opt');
         let initialOpt = 30;
@@ -1207,8 +1324,13 @@
 
         const macro = ref({
           cme_nq: {},
+          cme_es: {},
           usd_cnh: {},
           ndx_index: {},
+          spx_index: {},
+          us_treasuries: {},
+          nasdaq_dca: {},
+          qqq_52w: {},
           scale_factor: 1.0,
           avg_premium: 0.0,
           min_premium_etf: null,
@@ -1216,7 +1338,7 @@
         });
 
         // 系统版本号
-        const appVersion = ref('v1.5.5');
+        const appVersion = ref('v1.6.0');
 
         // 独立市场情绪状态：与 ETF 行情、排序和归档完全隔离。
         const fearGreed = ref(null);
@@ -1364,6 +1486,102 @@
         const activeScaleFactor = computed(() => {
           if (activeTab.value === 'nasdaq') return macro.value.scale_factor;
           return macro.value.sp500_scale_factor;
+        });
+
+        // 纯血纳指 (QQQM/长桥专用) 定投风向标多因子量化评估
+        const nasdaqDca = computed(() => {
+          const tr = macro.value?.us_treasuries || {};
+          const q52 = macro.value?.qqq_52w || {};
+          const availability = {
+            sentiment: Boolean(fearGreed.value?.valid && Number.isFinite(fearGreed.value.score) && fearGreed.value.score >= 0 && fearGreed.value.score <= 100),
+            yield: Boolean(tr.us10y?.valid && Number.isFinite(tr.us10y.yield) && tr.us10y.yield > 0),
+            spread: Boolean(tr.spread_10y_2y?.valid && Number.isFinite(tr.spread_10y_2y.spread_bp)),
+            pos52w: Boolean(q52.valid && Number.isFinite(q52.pos_52w) && q52.pos_52w >= 0 && q52.pos_52w <= 100)
+          };
+          const availableCount = Object.values(availability).filter(Boolean).length;
+          const fg = availability.sentiment ? fearGreed.value.score : 50.0;
+          const y10 = availability.yield ? tr.us10y.yield : null;
+          const sBp = availability.spread ? tr.spread_10y_2y.spread_bp : null;
+          const pos = availability.pos52w ? q52.pos_52w : null;
+
+          // 因子1: 情绪 (35%)
+          const fSentiment = fg;
+
+          // 因子2: 10Y美债折现 (30%)
+          let fYield = 50.0;
+          if (y10 !== null && y10 > 0) {
+            if (y10 <= 3.5) fYield = 20.0;
+            else if (y10 <= 4.5) fYield = 45.0;
+            else if (y10 <= 5.2) fYield = 65.0;
+            else fYield = 90.0;
+          }
+
+          // 因子3: 52周相对位置 (20%)
+          let f52w = 50.0;
+          if (pos !== null && pos >= 0 && pos <= 100) {
+            f52w = pos;
+          }
+
+          // 因子4: 10Y-2Y利差 (15%)
+          let fSpread = 50.0;
+          if (sBp !== null) {
+            if (sBp < -20.0) fSpread = 75.0;
+            else if (sBp < 0.0) fSpread = 65.0;
+            else if (sBp <= 80.0) fSpread = 40.0;
+            else fSpread = 25.0;
+          }
+
+          const rawScore = fSentiment * 0.35 + fYield * 0.30 + f52w * 0.20 + fSpread * 0.15;
+          const score = Number(rawScore.toFixed(1));
+
+          let tier = 'neutral', tierLabel = '中性博弈', action = '基准定投 (1.0x)', multiplier = 1.0, badgeColor = 'indigo';
+          if (score <= 20.0) {
+            tier = 'extreme_fear'; tierLabel = '极度冰点'; action = '翻倍定投 (2.0x)'; multiplier = 2.0; badgeColor = 'emerald';
+          } else if (score <= 40.0) {
+            tier = 'fear'; tierLabel = '悲观低估'; action = '适度加码 (1.5x)'; multiplier = 1.5; badgeColor = 'teal';
+          } else if (score <= 60.0) {
+            tier = 'neutral'; tierLabel = '中性博弈'; action = '基准定投 (1.0x)'; multiplier = 1.0; badgeColor = 'indigo';
+          } else if (score <= 80.0) {
+            tier = 'greed'; tierLabel = '亢奋防守'; action = '减半跟车 (0.5x)'; multiplier = 0.5; badgeColor = 'amber';
+          } else {
+            tier = 'extreme_greed'; tierLabel = '极度泡沫'; action = '停投止盈 (0.0x)'; multiplier = 0.0; badgeColor = 'rose';
+          }
+
+          const guidanceByTier = {
+            extreme_fear: '按基准金额的2倍定投，分期执行加码。',
+            fear: '按基准金额的1.5倍定投，适度增加投入。',
+            neutral: '保持1倍金额定投，按原计划执行。',
+            greed: '模型风险分偏高，定投金额减半。',
+            extreme_greed: '模型风险分较高，暂停定投，考虑机动仓分批止盈。'
+          };
+
+          return {
+            availability,
+            availableCount,
+            guidance: availableCount ? guidanceByTier[tier] : "数据不足，暂不提供策略提示",
+            score,
+            tier,
+            tierLabel,
+            action,
+            multiplier,
+            badgeColor,
+            factors: {
+              sentiment: Number(fSentiment.toFixed(1)),
+              yieldScore: fYield,
+              yieldVal: y10,
+              pos52w: pos !== null ? Number(pos.toFixed(1)) : null,
+              spreadScore: fSpread,
+              spreadBp: sBp,
+              // 兼容下划线命名与对象嵌套访问
+              yield_val: y10,
+              pos_52w: pos !== null ? Number(pos.toFixed(1)) : null,
+              spread_bp: sBp,
+              treasury: { value: y10 },
+              tech_52w: { pos: pos !== null ? Number(pos.toFixed(1)) : null },
+              yield_curve: { spread_bp: sBp }
+            },
+            valid: true
+          };
         });
 
         // 当前分类中，全场实时溢价率最低的标的代码（必须具有有效现价且估值非空）
@@ -1751,11 +1969,26 @@
           return (n > 0 ? '+' : '') + n.toFixed(2) + '%';
         };
 
+        const formatBpSign = (val) => {
+          if (val === undefined || val === null || isNaN(val)) return '--';
+          const n = Number(val);
+          return (n > 0 ? '+' : '') + n.toFixed(1) + ' bp';
+        };
+
         const getPriceChangeClass = (pct) => {
           if (pct === null || pct === undefined || isNaN(pct)) return 'text-slate-400 dark:text-slate-500';
           if (pct > 0) return 'text-rose-600 dark:text-rose-400';
           if (pct < 0) return 'text-emerald-600 dark:text-emerald-400';
           return 'text-slate-500 dark:text-slate-400';
+        };
+
+        const getDcaBadgeClass = (color) => {
+          if (color === 'emerald') return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30';
+          if (color === 'teal') return 'bg-teal-500/15 text-teal-700 dark:text-teal-400 border border-teal-500/30';
+          if (color === 'indigo') return 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30';
+          if (color === 'amber') return 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30';
+          if (color === 'rose') return 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30';
+          return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
         };
 
         const getPremiumTextColor = (premium) => {
@@ -1875,6 +2108,8 @@
         });
 
         return {
+          macroExpanded,
+          toggleMacroExpanded,
           loading,
           syncing,
           lastUpdated,
@@ -1958,7 +2193,10 @@
           closeHistoryModal,
           formatNumber,
           formatPercentSign,
+          formatBpSign,
           getPriceChangeClass,
+          getDcaBadgeClass,
+          nasdaqDca,
           getPremiumTextColor,
           getPremiumBadgeClass,
         };

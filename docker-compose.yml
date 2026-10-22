@@ -5,8 +5,10 @@ services:
     container_name: cross-etf
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
+      # 容器内接收Docker端口转发；宿主机仅发布到回环地址
+      - BIND_ADDRESS=0.0.0.0
       - PORT=8000
       - DATA_DIR=/app/data
       - TZ=Asia/Shanghai

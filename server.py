@@ -21,7 +21,8 @@ import threading
 from datetime import datetime, timedelta
 
 # 基础配置
-APP_VERSION = "v1.5.5"
+APP_VERSION = "v1.6.0"
+BIND_ADDRESS = os.environ.get("BIND_ADDRESS", "127.0.0.1")
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
 FEAR_GREED_URL = "https://feargreedflow.com/api/fear-greed"
@@ -181,6 +182,102 @@ def classify_fear_greed(score):
     if score < 75:
         return "greed", "贪婪"
     return "extreme_greed", "极度贪婪"
+
+
+def calculate_nasdaq_dca(fg_score=None, us10y_yield=None, spread_bp=None, pos_52w=None):
+    """
+    纯血纳指 (QQQM) 定投风向标多因子量化评分引擎 (五档动态金字塔乘数)
+    - 因子1 (35%): 全球情绪逆向 (CNN 恐惧贪婪)
+    - 因子2 (30%): 宏观折现压制 (美债 10Y 收益率)
+    - 因子3 (20%): 52周相对位置 (腾讯 usQQQ 估值/价格平替)
+    - 因子4 (15%): 宏观周期衰退 (10Y-2Y 美债利差)
+    """
+    # 因子 1: 情绪逆向 (35%)
+    f_sentiment = float(fg_score) if (fg_score is not None and math.isfinite(fg_score)) else 50.0
+
+    # 因子 2: 美债 10Y 折现压制 (30%)
+    if us10y_yield is not None and math.isfinite(us10y_yield) and us10y_yield > 0:
+        if us10y_yield <= 3.5:
+            f_yield = 20.0
+        elif us10y_yield <= 4.5:
+            f_yield = 45.0
+        elif us10y_yield <= 5.2:
+            f_yield = 65.0
+        else:
+            f_yield = 90.0
+    else:
+        f_yield = 50.0
+
+    # 因子 3: 52周相对位置/价格中枢平替 (20%)
+    if pos_52w is not None and math.isfinite(pos_52w) and 0 <= pos_52w <= 100:
+        f_52w = float(pos_52w)
+    else:
+        f_52w = 50.0
+
+    # 因子 4: 10Y-2Y 利差周期 (15%)
+    if spread_bp is not None and math.isfinite(spread_bp):
+        if spread_bp < -20.0:
+            f_spread = 75.0
+        elif spread_bp < 0.0:
+            f_spread = 65.0
+        elif spread_bp <= 80.0:
+            f_spread = 40.0
+        else:
+            f_spread = 25.0
+    else:
+        f_spread = 50.0
+
+    score = round(f_sentiment * 0.35 + f_yield * 0.30 + f_52w * 0.20 + f_spread * 0.15, 1)
+
+    # 五档动态金字塔乘数
+    if score <= 20.0:
+        tier = "extreme_fear"
+        tier_label = "极度冰点"
+        action = "翻倍定投 (2.0x)"
+        multiplier = 2.0
+        badge_color = "emerald"
+    elif score <= 40.0:
+        tier = "fear"
+        tier_label = "悲观低估"
+        action = "适度加码 (1.5x)"
+        multiplier = 1.5
+        badge_color = "teal"
+    elif score <= 60.0:
+        tier = "neutral"
+        tier_label = "中性博弈"
+        action = "基准定投 (1.0x)"
+        multiplier = 1.0
+        badge_color = "indigo"
+    elif score <= 80.0:
+        tier = "greed"
+        tier_label = "亢奋防守"
+        action = "减半跟车 (0.5x)"
+        multiplier = 0.5
+        badge_color = "amber"
+    else:
+        tier = "extreme_greed"
+        tier_label = "极度泡沫"
+        action = "停投止盈 (0.0x)"
+        multiplier = 0.0
+        badge_color = "rose"
+
+    return {
+        "score": score,
+        "tier": tier,
+        "tier_label": tier_label,
+        "action": action,
+        "multiplier": multiplier,
+        "badge_color": badge_color,
+        "factors": {
+            "sentiment": round(f_sentiment, 1),
+            "yield_score": round(f_yield, 1),
+            "yield_val": round(us10y_yield, 3) if (us10y_yield and math.isfinite(us10y_yield)) else None,
+            "pos_52w": round(f_52w, 1),
+            "spread_score": round(f_spread, 1),
+            "spread_bp": round(spread_bp, 1) if (spread_bp and math.isfinite(spread_bp)) else None
+        },
+        "valid": True
+    }
 
 
 def _parse_iso_datetime(value):
@@ -582,8 +679,8 @@ def get_market_data(force=False):
         active_sp500_etfs = registry["sp500_etfs"]
 
         all_symbols = [item["symbol"] for item in active_broad_etfs + active_sector_etfs + active_sp500_etfs]
-        tc_url = "http://qt.gtimg.cn/q=" + ",".join(all_symbols)
-        sina_url = "http://hq.sinajs.cn/list=hf_NQ,hf_ES,fx_susdcnh,gb_$ndx,gb_$spx"
+        tc_url = "http://qt.gtimg.cn/q=" + ",".join(all_symbols + ["usQQQ"])
+        sina_url = "http://hq.sinajs.cn/list=hf_NQ,hf_ES,fx_susdcnh,gb_$ndx,gb_$spx,globalbd_us2yt,globalbd_us5yt,globalbd_us10yt,globalbd_us30yt"
 
         # 抓取腾讯 A 股 ETF 行情与新浪外盘期货/汇率
         tc_raw = fetch_url(tc_url)
@@ -595,6 +692,33 @@ def get_market_data(force=False):
         usd_cnh = {"rate": 0.0, "close": 0.0, "change": 0.0, "change_pct": 0.0, "valid": False, "time": "--"}
         ndx_index = {"price": 0.0, "change_pct": 0.0, "time": "--"}
         spx_index = {"price": 0.0, "change_pct": 0.0, "time": "--"}
+        us_treasuries = {
+            "us2y": {"name": "美债2Y", "yield": 0.0, "change_bp": 0.0, "change_pct": 0.0, "valid": False, "time": "--"},
+            "us5y": {"name": "美债5Y", "yield": 0.0, "change_bp": 0.0, "change_pct": 0.0, "valid": False, "time": "--"},
+            "us10y": {"name": "美债10Y", "yield": 0.0, "change_bp": 0.0, "change_pct": 0.0, "valid": False, "time": "--"},
+            "us30y": {"name": "美债30Y", "yield": 0.0, "change_bp": 0.0, "change_pct": 0.0, "valid": False, "time": "--"},
+            "spread_10y_2y": {"name": "10Y-2Y利差", "spread": 0.0, "spread_bp": 0.0, "is_inverted": False, "valid": False},
+        }
+
+        def parse_treasury_item(f_list, default_name):
+            if len(f_list) > 8:
+                try:
+                    y = float(f_list[1]) if f_list[1] else 0.0
+                    chg_bp = (float(f_list[8]) if f_list[8] else 0.0) * 100.0
+                    chg_pct = float(f_list[7]) if f_list[7] else 0.0
+                    t = f_list[13] if len(f_list) > 13 and f_list[13] else "--"
+                    if math.isfinite(y) and y > 0:
+                        return {
+                            "name": default_name,
+                            "yield": round(y, 3),
+                            "change_bp": round(chg_bp, 2),
+                            "change_pct": round(chg_pct, 2),
+                            "valid": True,
+                            "time": t
+                        }
+                except Exception as ex:
+                    print(f"[Error] Parsing Treasury {default_name}: {ex}", file=sys.stderr)
+            return {"name": default_name, "yield": 0.0, "change_bp": 0.0, "change_pct": 0.0, "valid": False, "time": "--"}
 
         nq_valid = False
         es_valid = False
@@ -695,6 +819,30 @@ def get_market_data(force=False):
                 except Exception as e:
                     print(f"[Error] Parsing SPX: {e}", file=sys.stderr)
 
+            elif "globalbd_us2yt" in var_name:
+                us_treasuries["us2y"] = parse_treasury_item(fields, "美债2Y")
+
+            elif "globalbd_us5yt" in var_name:
+                us_treasuries["us5y"] = parse_treasury_item(fields, "美债5Y")
+
+            elif "globalbd_us10yt" in var_name:
+                us_treasuries["us10y"] = parse_treasury_item(fields, "美债10Y")
+
+            elif "globalbd_us30yt" in var_name:
+                us_treasuries["us30y"] = parse_treasury_item(fields, "美债30Y")
+
+        # 计算 10Y - 2Y 美债利差与倒挂状态
+        if us_treasuries["us10y"]["valid"] and us_treasuries["us2y"]["valid"]:
+            diff = us_treasuries["us10y"]["yield"] - us_treasuries["us2y"]["yield"]
+            diff_bp = round(diff * 100.0, 1)
+            us_treasuries["spread_10y_2y"] = {
+                "name": "10Y-2Y利差",
+                "spread": round(diff, 3),
+                "spread_bp": diff_bp,
+                "is_inverted": diff < 0,
+                "valid": True
+            }
+
         # 资产缩放乘数 Scale Factor 计算（按指数独立判断，必须期指与汇率均有效，否则置空）
         if nq_valid and fx_valid:
             scale_factor = (1.0 + cme_nq["change_pct"] / 100.0) * (1.0 + usd_cnh["change_pct"] / 100.0)
@@ -706,14 +854,31 @@ def get_market_data(force=False):
         else:
             sp500_scale_factor = None
 
-        # --- 解析各 ETF 行情 ---
+        # --- 解析各 ETF 行情与外盘 QQQ 52周极值 ---
         quote_map = {}
+        qqq_52w = {"price": 0.0, "high_52w": 0.0, "low_52w": 0.0, "pos_52w": 50.0, "valid": False}
         for line in tc_raw.strip().split(";"):
             line = line.strip()
             if not line or "=" not in line:
                 continue
             var_name, val = line.split("=", 1)
             fields = val.strip('"\n\r ').split("~")
+            if "usQQQ" in var_name and len(fields) > 50:
+                try:
+                    p = float(fields[3]) if fields[3] else 0.0
+                    h = float(fields[48]) if fields[48] else 0.0
+                    l = float(fields[49]) if fields[49] else 0.0
+                    if math.isfinite(p) and p > 0 and math.isfinite(h) and math.isfinite(l) and h > l:
+                        pos = ((p - l) / (h - l)) * 100.0
+                        qqq_52w = {
+                            "price": round(p, 2),
+                            "high_52w": round(h, 2),
+                            "low_52w": round(l, 2),
+                            "pos_52w": round(pos, 1),
+                            "valid": True
+                        }
+                except Exception as ex:
+                    print(f"[Error] Parsing usQQQ 52w: {ex}", file=sys.stderr)
             if len(fields) < 30:
                 continue
             code = fields[2]
@@ -928,6 +1093,8 @@ def get_market_data(force=False):
                 "usd_cnh": usd_cnh,
                 "ndx_index": ndx_index,
                 "spx_index": spx_index,
+                "us_treasuries": us_treasuries,
+                "qqq_52w": qqq_52w,
                 "scale_factor": round(scale_factor, 5) if scale_factor is not None else None,
                 "sp500_scale_factor": round(sp500_scale_factor, 5) if sp500_scale_factor is not None else None,
                 "avg_premium": avg_premium,
@@ -1334,7 +1501,7 @@ def run_server():
     print("🔍 正在在线检测并同步 ETF 标的池...")
     discover_etfs_online()
     start_daily_collector_daemon()
-    server_address = ("0.0.0.0", PORT)
+    server_address = (BIND_ADDRESS, PORT)
     httpd = ThreadedHTTPServer(server_address, DashboardHandler)
     print("=" * 60)
     print(f"🚀 CrossETF 跨境ETF实时溢价追踪服务已启动！[{APP_VERSION}]")

@@ -14,7 +14,8 @@ COPY server.py ./
 COPY static/ ./static/
 COPY data/ ./data/
 
-# 暴露端口（默认 8000）
+# 容器内监听所有网卡，由宿主机端口绑定控制外部访问范围
+ENV BIND_ADDRESS=0.0.0.0
 ENV PORT=8000
 ENV DATA_DIR=/app/data
 EXPOSE 8000
