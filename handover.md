@@ -10,7 +10,7 @@
 
 - **项目名称**：`CrossETF`（曾用名 NasDashboard，已正式更名）。
   - *命名内涵*：**Cross** 代表“立足境内 A 股、追踪跨境（Cross-Border）美股”，**绝非 NAS 网络存储主机**！
-- **当前代码版本**：`v1.5.4`（分支 `main`）；最新 Git 标签仍为 `v1.4.0`，本次发布不创建标签。
+- **当前代码版本**：`v1.5.5`（分支 `main`）；最新 Git 标签仍为 `v1.4.0`，本次发布不创建标签。
 - **远程仓库**：[https://github.com/ddmasato1/CrossETF](https://github.com/ddmasato1/CrossETF)
 - **核心定位**：极简、高信噪比的 A 股跨境 ETF 实时折溢价量化监控与收盘档案沉淀服务。专为云主机与本地 7×24 小时常驻运行打造。
 
@@ -54,7 +54,8 @@
     - `data/nasdaq_symbols_cache.json`：天天基金在线扫描生成的可再生成运行缓存；被 `.gitignore` 忽略，不提交。
     - `data/fear_greed_cache.json`：恐惧贪婪指数最后有效数据的可再生成运行缓存；被 `.gitignore` 忽略，不提交。
   - [`docker-compose.yml`](docker-compose.yml)：容器部署编排，挂载 `./data:/app/data`，端口 `8000:8000`。
-  - [`test_review_criteria.py`](test_review_criteria.py)：9 项核心验收、幂等性、移动端结构及情绪缓存回归测试套件。
+  - [`test_review_criteria.py`](test_review_criteria.py)：10 项核心验收、幂等性、移动端结构、停牌状态及情绪缓存回归测试套件。
+  - [`test_market_concurrency.py`](test_market_concurrency.py)：5 项行情并发检查，使用模拟上游，不请求真实行情源。
   - [`docs/mobile-adaptation/`](docs/mobile-adaptation/)：本轮移动端需求分析、讨论记录、最终方案、Demo 和视觉证据。
   - [`docs/design-qa.md`](docs/design-qa.md)：正式实现的 Design QA 总览；交接前必须保持 `final result: passed`。
   - [`docs/cnn-fear-greed/`](docs/cnn-fear-greed/)：恐惧贪婪指数的需求、讨论、最终方案、Demo、正式实现证据与专项 QA。
@@ -120,8 +121,9 @@
 # 本地测试启动
 python3 server.py
 
-# 运行全面回归单元测试套件（9项全通）
+# 运行核心验收（10项）与行情并发检查（5项）
 python3 test_review_criteria.py
+python3 test_market_concurrency.py
 
 # Docker 生产部署
 docker compose up -d --build
@@ -140,14 +142,10 @@ gh repo view
 
 ## 7. 当前交接状态 (Current Handoff State)
 
-- **代码基线**：`v1.5.4`，分支 `main`。接手时以 `git log -1 --oneline` 与 `git status --short` 为准，不在文档中固化当前提交哈希。
-- **本轮已完成**：
-  1. 盘中 ETF 停复牌状态动态感知（基于腾讯行情 `fields[40]`，精准透出 `is_suspended`）；
-  2. 桌面端表格与移动端卡片新增轻量醒目的 `临时停牌` 琥珀色微型徽章，10:30 自动复牌后自适应消除；
-  3. 彻底将生产收盘档案 `data/history_daily.json` 移出版本库并加入 `.gitignore`，新增 `data/history_daily.json.example` 种子模板支持冷启动自动初始化，永久根治服务器常驻环境 `git pull` 冲突；
-  4. 全量 10 项回归单元测试 100% 验证通过。
-- **隔离边界**：停牌状态不污染 `history_daily.json` 收盘归档；不阻断 IOPV 溢价率计算与原有排序逻辑。
-- **验证基线**：`python3 test_review_criteria.py` 为 10/10 通过；`git diff --check` 通过；实盘停牌数据校验通过。
+- **代码基线**：`v1.5.5`，分支 `main`。接手时以 `git log -1 --oneline` 与 `git status --short` 为准，不在文档中固化当前提交哈希。
+- **本轮已完成**：行情刷新增加进程内互斥锁与双重缓存检查；缓存 TTL 从刷新完成后起算；后台采集通过 `get_market_data(force=True)` 强刷，管理标的重扫共用同一把锁；前后端版本同步为 `v1.5.5`。
+- **隔离边界**：仅合并单个 Python 进程内的普通并发行情刷新，不跨进程合并；不改变 ETF 估值、排序及收盘归档字段。持有普通行情锁时不得再次调用 `get_market_data()`，以免递归加锁死锁。
+- **验证基线**：`python3 test_review_criteria.py` 10/10 通过；`python3 test_market_concurrency.py` 5/5 通过；本次提交文件的 `git diff --check` 通过。
 - **运行数据**：`data/fear_greed_cache.json` 与 `data/nasdaq_symbols_cache.json` 均为可再生成且被忽略的运行缓存；在线扫描会生成或刷新标的池缓存。接手 Agent 不得提交、暂存或回退这些文件；首次启动无网且无标的池缓存时，服务会使用代码内置的 `DEFAULT_*` 标的池。
 - **已知非阻塞项**：浏览器控制台仍有项目原有的 Tailwind CDN 生产提示；尚未进行实体 iOS/Android 字体缩放验收。
 - **后续候选方向**：云主机生产部署；基于 `history_daily.json` 的极简历史均溢趋势线。两项均未获本轮实施授权。

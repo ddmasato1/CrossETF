@@ -21,7 +21,7 @@ import threading
 from datetime import datetime, timedelta
 
 # 基础配置
-APP_VERSION = "v1.5.4"
+APP_VERSION = "v1.5.5"
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
 FEAR_GREED_URL = "https://feargreedflow.com/api/fear-greed"
@@ -123,6 +123,7 @@ cache_data = {
     "timestamp": 0,
     "payload": None
 }
+market_data_lock = threading.Lock()
 
 # 恐惧贪婪指数使用完全独立的低频缓存与刷新锁，不参与 ETF 行情链路。
 fear_greed_cache = {
@@ -563,392 +564,396 @@ def discover_etfs_online(force=False):
     return symbols_registry
 
 
-def get_market_data():
+def get_market_data(force=False):
     """获取并综合计算所有宏观指数、期货及各 ETF 实时溢价率"""
     now = time.time()
-    if cache_data["payload"] and (now - cache_data["timestamp"] < CACHE_TTL):
+    if not force and cache_data["payload"] and (now - cache_data["timestamp"] < CACHE_TTL):
         return cache_data["payload"]
 
-    # 确保标的池已就绪（在线拉取或前日缓存降级）
-    registry = discover_etfs_online()
-    active_broad_etfs = registry["broad_etfs"]
-    active_sector_etfs = registry["sector_etfs"]
-    active_sp500_etfs = registry["sp500_etfs"]
+    with market_data_lock:
+        now = time.time()
+        if not force and cache_data["payload"] and (now - cache_data["timestamp"] < CACHE_TTL):
+            return cache_data["payload"]
 
-    all_symbols = [item["symbol"] for item in active_broad_etfs + active_sector_etfs + active_sp500_etfs]
-    tc_url = "http://qt.gtimg.cn/q=" + ",".join(all_symbols)
-    sina_url = "http://hq.sinajs.cn/list=hf_NQ,hf_ES,fx_susdcnh,gb_$ndx,gb_$spx"
+        # 确保标的池已就绪（在线拉取或前日缓存降级）
+        registry = discover_etfs_online()
+        active_broad_etfs = registry["broad_etfs"]
+        active_sector_etfs = registry["sector_etfs"]
+        active_sp500_etfs = registry["sp500_etfs"]
 
-    # 抓取腾讯 A 股 ETF 行情与新浪外盘期货/汇率
-    tc_raw = fetch_url(tc_url)
-    sina_raw = fetch_url(sina_url, referer="https://finance.sina.com.cn")
+        all_symbols = [item["symbol"] for item in active_broad_etfs + active_sector_etfs + active_sp500_etfs]
+        tc_url = "http://qt.gtimg.cn/q=" + ",".join(all_symbols)
+        sina_url = "http://hq.sinajs.cn/list=hf_NQ,hf_ES,fx_susdcnh,gb_$ndx,gb_$spx"
 
-    # --- 解析宏观数据 ---
-    cme_nq = {"price": 0.0, "settle": 0.0, "change": 0.0, "change_pct": 0.0, "valid": False, "time": "--"}
-    cme_es = {"price": 0.0, "settle": 0.0, "change": 0.0, "change_pct": 0.0, "valid": False, "time": "--"}
-    usd_cnh = {"rate": 0.0, "close": 0.0, "change": 0.0, "change_pct": 0.0, "valid": False, "time": "--"}
-    ndx_index = {"price": 0.0, "change_pct": 0.0, "time": "--"}
-    spx_index = {"price": 0.0, "change_pct": 0.0, "time": "--"}
+        # 抓取腾讯 A 股 ETF 行情与新浪外盘期货/汇率
+        tc_raw = fetch_url(tc_url)
+        sina_raw = fetch_url(sina_url, referer="https://finance.sina.com.cn")
 
-    nq_valid = False
-    es_valid = False
-    fx_valid = False
+        # --- 解析宏观数据 ---
+        cme_nq = {"price": 0.0, "settle": 0.0, "change": 0.0, "change_pct": 0.0, "valid": False, "time": "--"}
+        cme_es = {"price": 0.0, "settle": 0.0, "change": 0.0, "change_pct": 0.0, "valid": False, "time": "--"}
+        usd_cnh = {"rate": 0.0, "close": 0.0, "change": 0.0, "change_pct": 0.0, "valid": False, "time": "--"}
+        ndx_index = {"price": 0.0, "change_pct": 0.0, "time": "--"}
+        spx_index = {"price": 0.0, "change_pct": 0.0, "time": "--"}
 
-    for line in sina_raw.strip().split(";"):
-        line = line.strip()
-        if not line or "=" not in line:
-            continue
-        var_name, val = line.split("=", 1)
-        content = val.strip('"\n\r ')
-        fields = content.split(",")
+        nq_valid = False
+        es_valid = False
+        fx_valid = False
 
-        if "hf_NQ" in var_name and len(fields) > 8:
-            try:
-                p = float(fields[0]) if fields[0] else 0.0
-                s = float(fields[7]) if fields[7] else 0.0
-                # 基准校验：当前价与昨结价必须均为有限正数，缺少基准值不能用当前值代替
-                if math.isfinite(p) and p > 0 and math.isfinite(s) and s > 0:
-                    chg = p - s
-                    pct = (chg / s) * 100.0
-                    if math.isfinite(pct):
-                        nq_valid = True
-                        cme_nq = {
-                            "price": round(p, 2),
-                            "settle": round(s, 2),
-                            "change": round(chg, 2),
-                            "change_pct": round(pct, 2),
-                            "valid": True,
-                            "time": fields[6] if len(fields) > 6 else "--"
-                        }
-            except Exception as e:
-                print(f"[Error] Parsing NQ: {e}", file=sys.stderr)
+        for line in sina_raw.strip().split(";"):
+            line = line.strip()
+            if not line or "=" not in line:
+                continue
+            var_name, val = line.split("=", 1)
+            content = val.strip('"\n\r ')
+            fields = content.split(",")
 
-        elif "fx_susdcnh" in var_name and len(fields) > 3:
-            try:
-                r = float(fields[1]) if fields[1] else 0.0
-                c = float(fields[3]) if fields[3] else 0.0
-                # 基准校验：当前汇率与前收盘价必须均为有限正数
-                if math.isfinite(r) and r > 0 and math.isfinite(c) and c > 0:
-                    chg = r - c
-                    pct = (chg / c) * 100.0
-                    if math.isfinite(pct):
-                        fx_valid = True
-                        usd_cnh = {
-                            "rate": round(r, 4),
-                            "close": round(c, 4),
-                            "change": round(chg, 4),
-                            "change_pct": round(pct, 3),
-                            "valid": True,
-                            "time": fields[0] if len(fields) > 0 else "--"
-                        }
-            except Exception as e:
-                print(f"[Error] Parsing CNH: {e}", file=sys.stderr)
+            if "hf_NQ" in var_name and len(fields) > 8:
+                try:
+                    p = float(fields[0]) if fields[0] else 0.0
+                    s = float(fields[7]) if fields[7] else 0.0
+                    # 基准校验：当前价与昨结价必须均为有限正数，缺少基准值不能用当前值代替
+                    if math.isfinite(p) and p > 0 and math.isfinite(s) and s > 0:
+                        chg = p - s
+                        pct = (chg / s) * 100.0
+                        if math.isfinite(pct):
+                            nq_valid = True
+                            cme_nq = {
+                                "price": round(p, 2),
+                                "settle": round(s, 2),
+                                "change": round(chg, 2),
+                                "change_pct": round(pct, 2),
+                                "valid": True,
+                                "time": fields[6] if len(fields) > 6 else "--"
+                            }
+                except Exception as e:
+                    print(f"[Error] Parsing NQ: {e}", file=sys.stderr)
 
-        elif "gb_$ndx" in var_name and len(fields) > 2:
-            try:
-                price = float(fields[1]) if fields[1] else 0.0
-                pct = float(fields[2]) if fields[2] else 0.0
-                ndx_index = {
-                    "price": round(price, 2),
-                    "change_pct": round(pct, 2),
-                    "time": fields[3] if len(fields) > 3 else "--"
-                }
-            except Exception as e:
-                print(f"[Error] Parsing NDX: {e}", file=sys.stderr)
+            elif "fx_susdcnh" in var_name and len(fields) > 3:
+                try:
+                    r = float(fields[1]) if fields[1] else 0.0
+                    c = float(fields[3]) if fields[3] else 0.0
+                    # 基准校验：当前汇率与前收盘价必须均为有限正数
+                    if math.isfinite(r) and r > 0 and math.isfinite(c) and c > 0:
+                        chg = r - c
+                        pct = (chg / c) * 100.0
+                        if math.isfinite(pct):
+                            fx_valid = True
+                            usd_cnh = {
+                                "rate": round(r, 4),
+                                "close": round(c, 4),
+                                "change": round(chg, 4),
+                                "change_pct": round(pct, 3),
+                                "valid": True,
+                                "time": fields[0] if len(fields) > 0 else "--"
+                            }
+                except Exception as e:
+                    print(f"[Error] Parsing CNH: {e}", file=sys.stderr)
 
-        elif "hf_ES" in var_name and len(fields) > 8:
-            try:
-                p = float(fields[0]) if fields[0] else 0.0
-                s = float(fields[7]) if fields[7] else 0.0
-                # 基准校验：当前价与昨结价必须均为有限正数
-                if math.isfinite(p) and p > 0 and math.isfinite(s) and s > 0:
-                    chg = p - s
-                    pct = (chg / s) * 100.0
-                    if math.isfinite(pct):
-                        es_valid = True
-                        cme_es = {
-                            "price": round(p, 2),
-                            "settle": round(s, 2),
-                            "change": round(chg, 2),
-                            "change_pct": round(pct, 2),
-                            "valid": True,
-                            "time": fields[6] if len(fields) > 6 else "--"
-                        }
-            except Exception as e:
-                print(f"[Error] Parsing ES: {e}", file=sys.stderr)
+            elif "gb_$ndx" in var_name and len(fields) > 2:
+                try:
+                    price = float(fields[1]) if fields[1] else 0.0
+                    pct = float(fields[2]) if fields[2] else 0.0
+                    ndx_index = {
+                        "price": round(price, 2),
+                        "change_pct": round(pct, 2),
+                        "time": fields[3] if len(fields) > 3 else "--"
+                    }
+                except Exception as e:
+                    print(f"[Error] Parsing NDX: {e}", file=sys.stderr)
 
-        elif "gb_$spx" in var_name and len(fields) > 2:
-            try:
-                price = float(fields[1]) if fields[1] else 0.0
-                pct = float(fields[2]) if fields[2] else 0.0
-                spx_index = {
-                    "price": round(price, 2),
-                    "change_pct": round(pct, 2),
-                    "time": fields[3] if len(fields) > 3 else "--"
-                }
-            except Exception as e:
-                print(f"[Error] Parsing SPX: {e}", file=sys.stderr)
+            elif "hf_ES" in var_name and len(fields) > 8:
+                try:
+                    p = float(fields[0]) if fields[0] else 0.0
+                    s = float(fields[7]) if fields[7] else 0.0
+                    # 基准校验：当前价与昨结价必须均为有限正数
+                    if math.isfinite(p) and p > 0 and math.isfinite(s) and s > 0:
+                        chg = p - s
+                        pct = (chg / s) * 100.0
+                        if math.isfinite(pct):
+                            es_valid = True
+                            cme_es = {
+                                "price": round(p, 2),
+                                "settle": round(s, 2),
+                                "change": round(chg, 2),
+                                "change_pct": round(pct, 2),
+                                "valid": True,
+                                "time": fields[6] if len(fields) > 6 else "--"
+                            }
+                except Exception as e:
+                    print(f"[Error] Parsing ES: {e}", file=sys.stderr)
 
-    # 资产缩放乘数 Scale Factor 计算（按指数独立判断，必须期指与汇率均有效，否则置空）
-    if nq_valid and fx_valid:
-        scale_factor = (1.0 + cme_nq["change_pct"] / 100.0) * (1.0 + usd_cnh["change_pct"] / 100.0)
-    else:
-        scale_factor = None
+            elif "gb_$spx" in var_name and len(fields) > 2:
+                try:
+                    price = float(fields[1]) if fields[1] else 0.0
+                    pct = float(fields[2]) if fields[2] else 0.0
+                    spx_index = {
+                        "price": round(price, 2),
+                        "change_pct": round(pct, 2),
+                        "time": fields[3] if len(fields) > 3 else "--"
+                    }
+                except Exception as e:
+                    print(f"[Error] Parsing SPX: {e}", file=sys.stderr)
 
-    if es_valid and fx_valid:
-        sp500_scale_factor = (1.0 + cme_es["change_pct"] / 100.0) * (1.0 + usd_cnh["change_pct"] / 100.0)
-    else:
-        sp500_scale_factor = None
+        # 资产缩放乘数 Scale Factor 计算（按指数独立判断，必须期指与汇率均有效，否则置空）
+        if nq_valid and fx_valid:
+            scale_factor = (1.0 + cme_nq["change_pct"] / 100.0) * (1.0 + usd_cnh["change_pct"] / 100.0)
+        else:
+            scale_factor = None
 
-    # --- 解析各 ETF 行情 ---
-    quote_map = {}
-    for line in tc_raw.strip().split(";"):
-        line = line.strip()
-        if not line or "=" not in line:
-            continue
-        var_name, val = line.split("=", 1)
-        fields = val.strip('"\n\r ').split("~")
-        if len(fields) < 30:
-            continue
-        code = fields[2]
-        quote_map[code] = fields
+        if es_valid and fx_valid:
+            sp500_scale_factor = (1.0 + cme_es["change_pct"] / 100.0) * (1.0 + usd_cnh["change_pct"] / 100.0)
+        else:
+            sp500_scale_factor = None
 
-    def parse_etf(item, is_sector=False, sf=None):
-        code = item["code"]
-        name = item["name"]
-        fee = item.get("fee", "0.65%")
-        market = "SH" if item["symbol"].startswith("sh") else "SZ"
-        index_name = item.get("index_name", "纳斯达克100")
+        # --- 解析各 ETF 行情 ---
+        quote_map = {}
+        for line in tc_raw.strip().split(";"):
+            line = line.strip()
+            if not line or "=" not in line:
+                continue
+            var_name, val = line.split("=", 1)
+            fields = val.strip('"\n\r ').split("~")
+            if len(fields) < 30:
+                continue
+            code = fields[2]
+            quote_map[code] = fields
 
-        fields = quote_map.get(code)
-        price = None
-        change = None
-        change_pct = None
-        amount_wan = 0.0
-        amount_str = "--"
-        volume_hand = 0
-        iopv = None
-        iopv_premium = None
-        nav_t1 = None
-        open_price = None
-        high_price = None
-        low_price = None
-        trade_time = ""
-        is_suspended = False
+        def parse_etf(item, is_sector=False, sf=None):
+            code = item["code"]
+            name = item["name"]
+            fee = item.get("fee", "0.65%")
+            market = "SH" if item["symbol"].startswith("sh") else "SZ"
+            index_name = item.get("index_name", "纳斯达克100")
 
-        if fields:
-            try:
-                # 停牌状态：fields[40] 为 'S' 表示停牌/临时停牌
-                if len(fields) > 40 and fields[40]:
-                    if str(fields[40]).strip().upper() == "S":
-                        is_suspended = True
+            fields = quote_map.get(code)
+            price = None
+            change = None
+            change_pct = None
+            amount_wan = 0.0
+            amount_str = "--"
+            volume_hand = 0
+            iopv = None
+            iopv_premium = None
+            nav_t1 = None
+            open_price = None
+            high_price = None
+            low_price = None
+            trade_time = ""
+            is_suspended = False
 
-                # 价格解析：只有价格为有限正数才有效，零成交量不阻断有效价格
-                if len(fields) > 3 and fields[3]:
-                    p = float(fields[3])
-                    if math.isfinite(p) and p > 0:
-                        price = round(p, 3)
+            if fields:
+                try:
+                    # 停牌状态：fields[40] 为 'S' 表示停牌/临时停牌
+                    if len(fields) > 40 and fields[40]:
+                        if str(fields[40]).strip().upper() == "S":
+                            is_suspended = True
 
-                if len(fields) > 5 and fields[5]:
-                    op = float(fields[5])
-                    if math.isfinite(op) and op > 0:
-                        open_price = round(op, 3)
+                    # 价格解析：只有价格为有限正数才有效，零成交量不阻断有效价格
+                    if len(fields) > 3 and fields[3]:
+                        p = float(fields[3])
+                        if math.isfinite(p) and p > 0:
+                            price = round(p, 3)
 
-                if len(fields) > 33 and fields[33]:
-                    hp = float(fields[33])
-                    if math.isfinite(hp) and hp > 0:
-                        high_price = round(hp, 3)
+                    if len(fields) > 5 and fields[5]:
+                        op = float(fields[5])
+                        if math.isfinite(op) and op > 0:
+                            open_price = round(op, 3)
 
-                if len(fields) > 34 and fields[34]:
-                    lp = float(fields[34])
-                    if math.isfinite(lp) and lp > 0:
-                        low_price = round(lp, 3)
+                    if len(fields) > 33 and fields[33]:
+                        hp = float(fields[33])
+                        if math.isfinite(hp) and hp > 0:
+                            high_price = round(hp, 3)
 
-                if len(fields) > 30 and fields[30]:
-                    trade_time = str(fields[30]).strip()
+                    if len(fields) > 34 and fields[34]:
+                        lp = float(fields[34])
+                        if math.isfinite(lp) and lp > 0:
+                            low_price = round(lp, 3)
 
-                if len(fields) > 31 and fields[31]:
-                    c = float(fields[31])
-                    if math.isfinite(c):
-                        change = round(c, 3)
+                    if len(fields) > 30 and fields[30]:
+                        trade_time = str(fields[30]).strip()
 
-                if len(fields) > 32 and fields[32]:
-                    cp = float(fields[32])
-                    if math.isfinite(cp):
-                        change_pct = round(cp, 2)
+                    if len(fields) > 31 and fields[31]:
+                        c = float(fields[31])
+                        if math.isfinite(c):
+                            change = round(c, 3)
 
-                if len(fields) > 37 and fields[37]:
-                    am = float(fields[37])
-                    if math.isfinite(am) and am >= 0:
-                        amount_wan = round(am, 1)
-                        amount_str = f"{amount_wan / 10000:.2f} 亿" if amount_wan >= 10000 else f"{amount_wan:.0f} 万"
+                    if len(fields) > 32 and fields[32]:
+                        cp = float(fields[32])
+                        if math.isfinite(cp):
+                            change_pct = round(cp, 2)
 
-                if len(fields) > 36 and fields[36]:
-                    vh = int(fields[36])
-                    if vh >= 0:
-                        volume_hand = vh
+                    if len(fields) > 37 and fields[37]:
+                        am = float(fields[37])
+                        if math.isfinite(am) and am >= 0:
+                            amount_wan = round(am, 1)
+                            amount_str = f"{amount_wan / 10000:.2f} 亿" if amount_wan >= 10000 else f"{amount_wan:.0f} 万"
 
-                # 官方公布单位净值 (NAV)：取消用 IOPV 隐式替代
-                if len(fields) > 81 and fields[81]:
-                    n = float(fields[81])
-                    if math.isfinite(n) and n > 0:
-                        nav_t1 = round(n, 4)
+                    if len(fields) > 36 and fields[36]:
+                        vh = int(fields[36])
+                        if vh >= 0:
+                            volume_hand = vh
 
-                # 交易所官方 IOPV 与官方溢价（仅作为参考对照字段）
-                if len(fields) > 78 and fields[78]:
-                    io = float(fields[78])
-                    if math.isfinite(io) and io > 0:
-                        iopv = round(io, 4)
+                    # 官方公布单位净值 (NAV)：取消用 IOPV 隐式替代
+                    if len(fields) > 81 and fields[81]:
+                        n = float(fields[81])
+                        if math.isfinite(n) and n > 0:
+                            nav_t1 = round(n, 4)
 
-                if len(fields) > 77 and fields[77]:
-                    iop = float(fields[77])
-                    if math.isfinite(iop):
-                        iopv_premium = round(iop, 2)
-            except Exception as e:
-                print(f"[Error] Parsing quote fields for {code}: {e}", file=sys.stderr)
+                    # 交易所官方 IOPV 与官方溢价（仅作为参考对照字段）
+                    if len(fields) > 78 and fields[78]:
+                        io = float(fields[78])
+                        if math.isfinite(io) and io > 0:
+                            iopv = round(io, 4)
 
-        # 估值状态与计算分流（券商官方 IOPV 口径）
-        # 1. 现价缺失
-        if price is None or price <= 0:
-            val_status = "missing_quote"
-            status_desc = "无有效场内现价"
-            est_realtime = iopv if (iopv and iopv > 0) else nav_t1
-            est_premium = None
-        # 2. 官方 IOPV 有效（优先对齐券商交易盘中口径）
-        elif iopv is not None and iopv > 0:
-            val_status = "official_iopv"
-            status_desc = "交易所官方IOPV估值"
-            est_realtime = iopv
-            # 若接口已自带 iopv_premium 则直接采用，否则由现价与 iopv 计算
-            if iopv_premium is not None and math.isfinite(iopv_premium):
-                est_premium = iopv_premium
+                    if len(fields) > 77 and fields[77]:
+                        iop = float(fields[77])
+                        if math.isfinite(iop):
+                            iopv_premium = round(iop, 2)
+                except Exception as e:
+                    print(f"[Error] Parsing quote fields for {code}: {e}", file=sys.stderr)
+
+            # 估值状态与计算分流（券商官方 IOPV 口径）
+            # 1. 现价缺失
+            if price is None or price <= 0:
+                val_status = "missing_quote"
+                status_desc = "无有效场内现价"
+                est_realtime = iopv if (iopv and iopv > 0) else nav_t1
+                est_premium = None
+            # 2. 官方 IOPV 有效（优先对齐券商交易盘中口径）
+            elif iopv is not None and iopv > 0:
+                val_status = "official_iopv"
+                status_desc = "交易所官方IOPV估值"
+                est_realtime = iopv
+                # 若接口已自带 iopv_premium 则直接采用，否则由现价与 iopv 计算
+                if iopv_premium is not None and math.isfinite(iopv_premium):
+                    est_premium = iopv_premium
+                else:
+                    est_premium = round(((price - iopv) / iopv) * 100.0, 2)
+
+            # 3. IOPV 缺失但官方公布净值有效（非交易时段或未计算 IOPV 时的回退）
+            elif nav_t1 is not None and nav_t1 > 0:
+                val_status = "nav_fallback"
+                status_desc = "基准公布净值估算(IOPV未发布)"
+                est_realtime = nav_t1
+                est_premium = round(((price - nav_t1) / nav_t1) * 100.0, 2)
+            # 4. 数据缺失
             else:
-                est_premium = round(((price - iopv) / iopv) * 100.0, 2)
+                val_status = "missing_nav"
+                status_desc = "官方IOPV与净值数据缺失"
+                est_realtime = None
+                est_premium = None
 
-        # 3. IOPV 缺失但官方公布净值有效（非交易时段或未计算 IOPV 时的回退）
-        elif nav_t1 is not None and nav_t1 > 0:
-            val_status = "nav_fallback"
-            status_desc = "基准公布净值估算(IOPV未发布)"
-            est_realtime = nav_t1
-            est_premium = round(((price - nav_t1) / nav_t1) * 100.0, 2)
-        # 4. 数据缺失
-        else:
-            val_status = "missing_nav"
-            status_desc = "官方IOPV与净值数据缺失"
-            est_realtime = None
-            est_premium = None
+            result = {
+                "code": code,
+                "name": name,
+                "market": market,
+                "fee": fee,
+                "index_name": index_name,
+                "val_status": val_status,
+                "status_desc": status_desc,
+                "is_suspended": is_suspended,
+                "price": price,
+                "change": change,
+                "change_pct": change_pct,
+                "nav_t1": nav_t1,
+                "iopv": iopv,
+                "iopv_premium": iopv_premium,
+                "est_realtime": est_realtime,
+                "est_premium": est_premium,
+                "amount_wan": amount_wan,
+                "amount_str": amount_str,
+                "volume_hand": volume_hand,
+                "open": open_price,
+                "high": high_price,
+                "low": low_price,
+                "trade_time": trade_time,
+            }
+            if is_sector:
+                result["note"] = item.get("note", "细分行业标的")
+            return result
 
-        result = {
-            "code": code,
-            "name": name,
-            "market": market,
-            "fee": fee,
-            "index_name": index_name,
-            "val_status": val_status,
-            "status_desc": status_desc,
-            "is_suspended": is_suspended,
-            "price": price,
-            "change": change,
-            "change_pct": change_pct,
-            "nav_t1": nav_t1,
-            "iopv": iopv,
-            "iopv_premium": iopv_premium,
-            "est_realtime": est_realtime,
-            "est_premium": est_premium,
-            "amount_wan": amount_wan,
-            "amount_str": amount_str,
-            "volume_hand": volume_hand,
-            "open": open_price,
-            "high": high_price,
-            "low": low_price,
-            "trade_time": trade_time,
+        def sort_etfs_and_calc_stats(etf_list):
+            """沉底排序并严格排除无效值计算统计指标（合法 0.0% 溢价予以保留）"""
+            valid = [x for x in etf_list if x.get("est_premium") is not None]
+            invalid = [x for x in etf_list if x.get("est_premium") is None]
+            # 有效项升序，无效项沉底在后
+            valid.sort(key=lambda x: x["est_premium"])
+            sorted_list = valid + invalid
+
+            if valid:
+                avg_p = round(sum(x["est_premium"] for x in valid) / len(valid), 2)
+                min_etf = valid[0]
+                max_etf = valid[-1]
+            else:
+                avg_p = None
+                min_etf = None
+                max_etf = None
+
+            return sorted_list, avg_p, min_etf, max_etf
+
+        # 解析纳指 100 宽基标的
+        nasdaq100_list, avg_premium, min_premium_etf, max_premium_etf = sort_etfs_and_calc_stats(
+            [parse_etf(item, sf=scale_factor) for item in active_broad_etfs]
+        )
+
+        # 解析标普 500 宽基标的
+        sp500_list, sp500_avg_premium, sp500_min_premium_etf, sp500_max_premium_etf = sort_etfs_and_calc_stats(
+            [parse_etf(item, sf=sp500_scale_factor) for item in active_sp500_etfs]
+        )
+
+        # 解析细分行业标的（采用官方 IOPV 估值与溢价口径）
+        sector_list, sector_avg_premium, _, _ = sort_etfs_and_calc_stats(
+            [parse_etf(item, is_sector=True, sf=None) for item in active_sector_etfs]
+        )
+
+        payload = {
+            "code": 200,
+            "message": "success",
+            "version": APP_VERSION,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now)),
+            "registry_info": {
+                "status": registry["status"],
+                "status_desc": registry["status_desc"],
+                "cached_date": registry["cached_date"],
+                "updated_at": registry["updated_at"],
+                "last_log": registry.get("last_log", ""),
+                "broad_count": len(nasdaq100_list),
+                "sector_count": len(sector_list),
+                "sp500_count": len(sp500_list),
+            },
+            "macro": {
+                "cme_nq": cme_nq,
+                "cme_es": cme_es,
+                "usd_cnh": usd_cnh,
+                "ndx_index": ndx_index,
+                "spx_index": spx_index,
+                "scale_factor": round(scale_factor, 5) if scale_factor is not None else None,
+                "sp500_scale_factor": round(sp500_scale_factor, 5) if sp500_scale_factor is not None else None,
+                "avg_premium": avg_premium,
+                "sp500_avg_premium": sp500_avg_premium,
+                "total_count": len(nasdaq100_list),
+                "sp500_count": len(sp500_list),
+                "min_premium_etf": min_premium_etf,
+                "max_premium_etf": max_premium_etf,
+                "sp500_min_premium_etf": sp500_min_premium_etf,
+                "sp500_max_premium_etf": sp500_max_premium_etf,
+            },
+            "nasdaq100_etfs": nasdaq100_list,
+            "nasdaq_tech_etfs": sector_list,
+            "sector_etfs": sector_list,
+            "sp500_etfs": sp500_list,
         }
-        if is_sector:
-            result["note"] = item.get("note", "细分行业标的")
-        return result
 
-    def sort_etfs_and_calc_stats(etf_list):
-        """沉底排序并严格排除无效值计算统计指标（合法 0.0% 溢价予以保留）"""
-        valid = [x for x in etf_list if x.get("est_premium") is not None]
-        invalid = [x for x in etf_list if x.get("est_premium") is None]
-        # 有效项升序，无效项沉底在后
-        valid.sort(key=lambda x: x["est_premium"])
-        sorted_list = valid + invalid
+        # 静默沉淀收盘数据（仅在收盘后且今日未归档时触发，零额外开销）
+        try:
+            record_daily_history(payload)
+        except Exception as e:
+            print(f"[Error] record_daily_history error: {e}", file=sys.stderr)
 
-        if valid:
-            avg_p = round(sum(x["est_premium"] for x in valid) / len(valid), 2)
-            min_etf = valid[0]
-            max_etf = valid[-1]
-        else:
-            avg_p = None
-            min_etf = None
-            max_etf = None
-
-        return sorted_list, avg_p, min_etf, max_etf
-
-    # 解析纳指 100 宽基标的
-    nasdaq100_list, avg_premium, min_premium_etf, max_premium_etf = sort_etfs_and_calc_stats(
-        [parse_etf(item, sf=scale_factor) for item in active_broad_etfs]
-    )
-
-    # 解析标普 500 宽基标的
-    sp500_list, sp500_avg_premium, sp500_min_premium_etf, sp500_max_premium_etf = sort_etfs_and_calc_stats(
-        [parse_etf(item, sf=sp500_scale_factor) for item in active_sp500_etfs]
-    )
-
-    # 解析细分行业标的（采用官方 IOPV 估值与溢价口径）
-    sector_list, sector_avg_premium, _, _ = sort_etfs_and_calc_stats(
-        [parse_etf(item, is_sector=True, sf=None) for item in active_sector_etfs]
-    )
-
-    payload = {
-        "code": 200,
-        "message": "success",
-        "version": APP_VERSION,
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now)),
-        "registry_info": {
-            "status": registry["status"],
-            "status_desc": registry["status_desc"],
-            "cached_date": registry["cached_date"],
-            "updated_at": registry["updated_at"],
-            "last_log": registry.get("last_log", ""),
-            "broad_count": len(nasdaq100_list),
-            "sector_count": len(sector_list),
-            "sp500_count": len(sp500_list),
-        },
-        "macro": {
-            "cme_nq": cme_nq,
-            "cme_es": cme_es,
-            "usd_cnh": usd_cnh,
-            "ndx_index": ndx_index,
-            "spx_index": spx_index,
-            "scale_factor": round(scale_factor, 5) if scale_factor is not None else None,
-            "sp500_scale_factor": round(sp500_scale_factor, 5) if sp500_scale_factor is not None else None,
-            "avg_premium": avg_premium,
-            "sp500_avg_premium": sp500_avg_premium,
-            "total_count": len(nasdaq100_list),
-            "sp500_count": len(sp500_list),
-            "min_premium_etf": min_premium_etf,
-            "max_premium_etf": max_premium_etf,
-            "sp500_min_premium_etf": sp500_min_premium_etf,
-            "sp500_max_premium_etf": sp500_max_premium_etf,
-        },
-        "nasdaq100_etfs": nasdaq100_list,
-        "nasdaq_tech_etfs": sector_list,
-        "sector_etfs": sector_list,
-        "sp500_etfs": sp500_list,
-    }
-
-    cache_data["timestamp"] = now
-    cache_data["payload"] = payload
-
-    # 静默沉淀收盘数据（仅在收盘后且今日未归档时触发，零额外开销）
-    try:
-        record_daily_history(payload)
-    except Exception as e:
-        print(f"[Error] record_daily_history error: {e}", file=sys.stderr)
-
-    return payload
+        cache_data["payload"] = payload
+        cache_data["timestamp"] = time.time()
+        return payload
 
 
 def record_daily_history(payload):
@@ -1101,8 +1106,7 @@ def daily_collector_daemon():
 
                     if not already_archived:
                         print(f"[{time.strftime('%H:%M:%S')}] ⏰ [Daemon] 检测到工作日已收盘且今日尚未归档，自主触发收盘采集...", flush=True)
-                        cache_data["payload"] = None  # 穿透缓存，强制拉取最新收盘数据
-                        get_market_data()
+                        get_market_data(force=True)
         except Exception as e:
             print(f"[Daemon Error] {e}", file=sys.stderr)
 
@@ -1157,8 +1161,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         # 路由 2: 手动强制在线重新拉取标的池
         if req_path in ["/api/refresh-symbols", "/api/refresh-symbols/"]:
-            cache_data["payload"] = None
-            reg = discover_etfs_online(force=True)
+            with market_data_lock:
+                cache_data["payload"] = None
+                reg = discover_etfs_online(force=True)
             res = {
                 "code": 200,
                 "version": APP_VERSION,
