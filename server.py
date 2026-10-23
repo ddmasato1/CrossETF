@@ -21,7 +21,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 
 # 基础配置
-APP_VERSION = "v1.7.1"
+APP_VERSION = "v1.7.2"
 BIND_ADDRESS = os.environ.get("BIND_ADDRESS", "127.0.0.1")
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
@@ -908,6 +908,7 @@ def get_market_data(force=False):
             price = None
             change = None
             change_pct = None
+            ytd_change_pct = None
             amount_wan = 0.0
             amount_str = "--"
             volume_hand = 0
@@ -991,6 +992,15 @@ def get_market_data(force=False):
                 except Exception as e:
                     print(f"[Error] Parsing quote fields for {code}: {e}", file=sys.stderr)
 
+            # 腾讯 fields[62]：年初至今场内价格涨幅，独立解析避免影响估值。
+            if fields and len(fields) > 62 and fields[62].strip() and price is not None:
+                try:
+                    ytd = float(fields[62])
+                    if math.isfinite(ytd):
+                        ytd_change_pct = round(ytd, 2)
+                except (ValueError, TypeError):
+                    pass
+
             # 估值状态与计算分流（券商官方 IOPV 口径）
             # 1. 现价缺失
             if price is None or price <= 0:
@@ -1034,6 +1044,7 @@ def get_market_data(force=False):
                 "price": price,
                 "change": change,
                 "change_pct": change_pct,
+                "ytd_change_pct": ytd_change_pct,
                 "nav_t1": nav_t1,
                 "iopv": iopv,
                 "iopv_premium": iopv_premium,

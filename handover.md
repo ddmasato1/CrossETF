@@ -1,6 +1,6 @@
 # CrossETF 项目交接
 
-当前正式版本为**v1.7.1**，分支`main`，已发布[GitHub Release](https://github.com/ddmasato1/CrossETF/releases/tag/v1.7.1)，包含信号灯、详情建议去重与文档整理。本文保留当前运行与维护所需信息；已替代的试用方案已清理，版本历史见[CHANGELOG](CHANGELOG.md)。
+当前版本为**v1.7.2**，分支`main`，版本入口见[Git标签](https://github.com/ddmasato1/CrossETF/tree/v1.7.2)，新增ETF年初至今场内价格涨幅展示与排序。本文保留当前运行与维护所需信息；版本历史见[CHANGELOG](CHANGELOG.md)。
 
 ## 项目与架构
 
@@ -76,6 +76,7 @@
 ```bash
 python3 test_review_criteria.py
 python3 test_market_concurrency.py
+python3 test_ytd_returns.py
 git diff --check
 docker compose up -d --build
 ```
@@ -85,3 +86,11 @@ docker compose up -d --build
 - v1.7.1在v1.7.0基础上发布信号灯、详情建议去重及文档修正，前后端版本号同步；旧标签不修改，本次不操作云端部署。
 - 详情内已移除重复建议横幅，顶部折叠摘要保留灯号及行动建议；评分浮层仍展示三档规则。
 - AGENT.md及其本地私有忽略规则保留于工作区，不入发布提交。临时检查脚本、预览HTML和截图不入库；已有受跟踪的历史资源不作本轮新增证据。
+
+## ETF年初至今涨幅（v1.7.2）
+
+- `/api/quotes` 全部ETF新增 `ytd_change_pct`，读取腾讯 `fields[62]`，独立解析并校验有限数值，保留0；缺失、非法或无有效现价返回null。
+- 桌面宽基与行业表格最后一列为“年初至今”可排序列；两表共享排序键，手机完整数据最后一项展示。默认溢价升序与空值沉底沿用。
+- 口径为场内价格涨幅，含溢价变化影响，不等于净值收益率；复用原行情请求，不增加网络请求或收盘档案字段。
+- 2026-10-23实测现有18只字段均与现价/2025-12-31未复权收盘价计算值一致；未覆盖未来新发基金与分红拆分情形，展示沿用上游口径。
+- 验证：12项核心、5项并发、2项年初至今解析测试通过；前端语法、升降序/空值检查通过。本地容器已重启，实测18/18只返回有效涨幅，页面升降序已验证；本次不操作云端部署。

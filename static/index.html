@@ -786,6 +786,7 @@
                 <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">成交额</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ item.amount_str || '--' }}</dd></div>
                 <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">市场</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ item.market || '--' }}</dd></div>
                 <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">跟踪指数</dt><dd class="mt-1 text-xs leading-tight font-bold text-slate-900 dark:text-white break-words">{{ item.index_name || '--' }}</dd></div>
+                <div title="场内价格相对上年末的涨幅，包含溢价变化影响"><dt class="text-[11px] text-slate-500 dark:text-slate-400">年初至今</dt><dd class="mt-1 text-xs font-bold" :class="getPriceChangeClass(item.ytd_change_pct)">{{ formatPercentSign(item.ytd_change_pct) }}</dd></div>
               </dl>
             </div>
           </div>
@@ -819,6 +820,7 @@
                     <span v-if="sortKey === 'change_pct'" class="text-emerald-600 dark:text-emerald-400">{{ sortAsc ? '↑' : '↓' }}</span>
                   </div>
                 </th>
+
                 <!-- 核心 3: 现价 -->
                 <th class="py-2.5 px-3 text-right cursor-pointer hover:text-slate-900 dark:hover:text-white" @click="sortBy('price')">
                   <div class="flex items-center justify-end gap-1">
@@ -841,6 +843,11 @@
                 </th>
                 <th class="py-2.5 px-3 text-right hidden lg:table-cell cursor-pointer hover:text-slate-900 dark:hover:text-white" @click="sortBy('amount_wan')">
                   成交额
+                </th>
+                <th class="py-2.5 px-3 text-right whitespace-nowrap" title="场内价格相对上年末的涨幅，包含溢价变化影响" :aria-sort="sortKey === 'ytd_change_pct' ? (sortAsc ? 'ascending' : 'descending') : 'none'">
+                  <button type="button" class="hover:text-slate-900 dark:hover:text-white" @click="sortBy('ytd_change_pct')">
+                    年初至今 <span v-if="sortKey === 'ytd_change_pct'" class="text-emerald-600 dark:text-emerald-400">{{ sortAsc ? '↑' : '↓' }}</span>
+                  </button>
                 </th>
               </tr>
             </thead>
@@ -886,6 +893,7 @@
                   {{ formatPercentSign(item.change_pct) }}
                 </td>
 
+
                 <!-- 4. 核心: 现价 -->
                 <td class="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-white text-sm sm:text-base">
                   {{ formatNumber(item.price, 3) }}
@@ -912,6 +920,9 @@
                 </td>
 
 
+                <td class="py-2.5 px-3 text-right font-bold text-xs sm:text-sm whitespace-nowrap" :class="getPriceChangeClass(item.ytd_change_pct)">
+                  {{ formatPercentSign(item.ytd_change_pct) }}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -931,7 +942,7 @@
 
       <!-- 手机端行业与主题 ETF 卡片 -->
       <div class="sm:hidden space-y-2" data-mobile-sector-list>
-        <article v-for="item in sectorList" :key="'mobile-sector-' + item.code"
+        <article v-for="item in sortedSectorList" :key="'mobile-sector-' + item.code"
           class="bg-white border border-slate-200/90 dark:bg-slate-900 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-sm">
           <button type="button" @click="toggleEtfDetails(item.code)"
             :aria-expanded="expandedEtfCode === item.code"
@@ -972,6 +983,7 @@
                 <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">成交额</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ item.amount_str || '--' }}</dd></div>
                 <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">市场</dt><dd class="mt-1 text-xs font-bold text-slate-900 dark:text-white">{{ item.market || '--' }}</dd></div>
                 <div><dt class="text-[11px] text-slate-500 dark:text-slate-400">跟踪指数</dt><dd class="mt-1 text-xs leading-tight font-bold text-slate-900 dark:text-white break-words">{{ item.index_name || '--' }}</dd></div>
+                <div title="场内价格相对上年末的涨幅，包含溢价变化影响"><dt class="text-[11px] text-slate-500 dark:text-slate-400">年初至今</dt><dd class="mt-1 text-xs font-bold" :class="getPriceChangeClass(item.ytd_change_pct)">{{ formatPercentSign(item.ytd_change_pct) }}</dd></div>
               </dl>
             </div>
           </div>
@@ -987,15 +999,21 @@
                 <th class="py-2 px-3">跟踪细分指数</th>
                 <th class="py-2 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400 bg-slate-50 dark:bg-slate-800/40">实时溢价率</th>
                 <th class="py-2 px-3 text-right">涨跌幅</th>
+
                 <th class="py-2 px-3 text-right">现价</th>
                 <th class="py-2 px-3 text-right">费率</th>
                 <th class="py-2 px-3 text-right text-indigo-600 dark:text-indigo-300 font-semibold">实时估值 (IOPV)</th>
                 <th class="py-2 px-3 text-right hidden md:table-cell">公布净值</th>
                 <th class="py-2 px-3 text-right hidden lg:table-cell">成交额</th>
+                <th class="py-2.5 px-3 text-right whitespace-nowrap" title="场内价格相对上年末的涨幅，包含溢价变化影响" :aria-sort="sortKey === 'ytd_change_pct' ? (sortAsc ? 'ascending' : 'descending') : 'none'">
+                  <button type="button" class="hover:text-slate-900 dark:hover:text-white" @click="sortBy('ytd_change_pct')">
+                    年初至今 <span v-if="sortKey === 'ytd_change_pct'" class="text-emerald-600 dark:text-emerald-400">{{ sortAsc ? '↑' : '↓' }}</span>
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/50 font-tabular">
-              <tr v-for="item in sectorList" :key="item.code" class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+              <tr v-for="item in sortedSectorList" :key="item.code" class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                 <td class="py-2.5 px-3">
                   <div class="flex items-center gap-2">
                     <span class="font-mono font-bold text-slate-900 dark:text-white text-base tracking-wide">{{ item.code }}</span>
@@ -1019,6 +1037,7 @@
                 <td class="py-2.5 px-3 text-right font-bold text-xs" :class="getPriceChangeClass(item.change_pct)">
                   {{ formatPercentSign(item.change_pct) }}
                 </td>
+
                 <td class="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-white text-sm">
                   {{ formatNumber(item.price, 3) }}
                 </td>
@@ -1036,6 +1055,9 @@
                 <!-- 成交额 -->
                 <td class="py-2.5 px-3 text-right hidden lg:table-cell text-slate-600 dark:text-slate-300 font-medium">
                   {{ item.amount_str }}
+                </td>
+                <td class="py-2.5 px-3 text-right font-bold text-xs sm:text-sm whitespace-nowrap" :class="getPriceChangeClass(item.ytd_change_pct)">
+                  {{ formatPercentSign(item.ytd_change_pct) }}
                 </td>
               </tr>
             </tbody>
@@ -1347,7 +1369,7 @@
         });
 
         // 系统版本号
-        const appVersion = ref('v1.7.1');
+        const appVersion = ref('v1.7.2');
 
         // 独立市场情绪状态：与 ETF 行情、排序和归档完全隔离。
         const fearGreed = ref(null);
@@ -1859,8 +1881,8 @@
         };
 
         // 排序计算（基于当前激活分类的 activeTabList；无论升降序，空值 null/undefined 必须永远沉底）
-        const sortedList = computed(() => {
-          const list = [...activeTabList.value];
+        const sortEtfList = (items) => {
+          const list = [...items];
           list.sort((a, b) => {
             const va = a[sortKey.value];
             const vb = b[sortKey.value];
@@ -1878,7 +1900,9 @@
             return sortAsc.value ? (numA - numB) : (numB - numA);
           });
           return list;
-        });
+        };
+        const sortedList = computed(() => sortEtfList(activeTabList.value));
+        const sortedSectorList = computed(() => sortEtfList(sectorList.value));
 
         const sortBy = (key) => {
           if (sortKey.value === key) {
@@ -2111,6 +2135,7 @@
           registryInfo,
           nasdaq100List,
           sectorList,
+          sortedSectorList,
           sp500List,
           sortedList,
           sortKey,
