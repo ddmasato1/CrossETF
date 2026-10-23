@@ -29,3 +29,7 @@ data/fear_greed_cache.json
 data/fear_greed_cache.json.tmp
 data/history_daily.json
 data/history_daily.json.tmp
+
+# Nasdaq valuation runtime snapshot
+data/nasdaq_valuation_cache.json
+data/nasdaq_valuation_cache.json.tmp

@@ -18,10 +18,10 @@ import sys
 import re
 import shutil
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # 基础配置
-APP_VERSION = "v1.6.0"
+APP_VERSION = "v1.7.0"
 BIND_ADDRESS = os.environ.get("BIND_ADDRESS", "127.0.0.1")
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
@@ -29,6 +29,8 @@ FEAR_GREED_URL = "https://feargreedflow.com/api/fear-greed"
 FEAR_GREED_CACHE_TTL = 3600
 FEAR_GREED_RETRY_TTL = 600
 FEAR_GREED_TIMEOUT = 8
+VALUATION_URL = "https://danjuanfunds.com/djapi/index_eva/dj"
+VALUATION_CACHE_TTL = 6 * 3600
 
 # 缓存与数据文件路径
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -36,6 +38,7 @@ DATA_DIR = os.path.abspath(os.environ.get("DATA_DIR", os.path.join(CURRENT_DIR, 
 SYMBOLS_CACHE_FILE = os.path.join(DATA_DIR, "nasdaq_symbols_cache.json")
 HISTORY_FILE = os.path.join(DATA_DIR, "history_daily.json")
 FEAR_GREED_CACHE_FILE = os.path.join(DATA_DIR, "fear_greed_cache.json")
+VALUATION_CACHE_FILE = os.path.join(DATA_DIR, "nasdaq_valuation_cache.json")
 
 
 def ensure_data_storage():
@@ -137,6 +140,11 @@ fear_greed_cache = {
 }
 fear_greed_lock = threading.Lock()
 
+# 估值与行情、情绪独立；成功或失败均限制为每6小时最多一次上游请求。
+valuation_cache = {"initialized": False, "payload": None,
+                   "last_success_at": "", "last_success_epoch": 0.0, "last_attempt_epoch": 0.0}
+valuation_lock = threading.Lock()
+
 # 标的池内存缓存
 symbols_registry = {
     "status": "uninitialized",
@@ -182,102 +190,6 @@ def classify_fear_greed(score):
     if score < 75:
         return "greed", "贪婪"
     return "extreme_greed", "极度贪婪"
-
-
-def calculate_nasdaq_dca(fg_score=None, us10y_yield=None, spread_bp=None, pos_52w=None):
-    """
-    纯血纳指 (QQQM) 定投风向标多因子量化评分引擎 (五档动态金字塔乘数)
-    - 因子1 (35%): 全球情绪逆向 (CNN 恐惧贪婪)
-    - 因子2 (30%): 宏观折现压制 (美债 10Y 收益率)
-    - 因子3 (20%): 52周相对位置 (腾讯 usQQQ 估值/价格平替)
-    - 因子4 (15%): 宏观周期衰退 (10Y-2Y 美债利差)
-    """
-    # 因子 1: 情绪逆向 (35%)
-    f_sentiment = float(fg_score) if (fg_score is not None and math.isfinite(fg_score)) else 50.0
-
-    # 因子 2: 美债 10Y 折现压制 (30%)
-    if us10y_yield is not None and math.isfinite(us10y_yield) and us10y_yield > 0:
-        if us10y_yield <= 3.5:
-            f_yield = 20.0
-        elif us10y_yield <= 4.5:
-            f_yield = 45.0
-        elif us10y_yield <= 5.2:
-            f_yield = 65.0
-        else:
-            f_yield = 90.0
-    else:
-        f_yield = 50.0
-
-    # 因子 3: 52周相对位置/价格中枢平替 (20%)
-    if pos_52w is not None and math.isfinite(pos_52w) and 0 <= pos_52w <= 100:
-        f_52w = float(pos_52w)
-    else:
-        f_52w = 50.0
-
-    # 因子 4: 10Y-2Y 利差周期 (15%)
-    if spread_bp is not None and math.isfinite(spread_bp):
-        if spread_bp < -20.0:
-            f_spread = 75.0
-        elif spread_bp < 0.0:
-            f_spread = 65.0
-        elif spread_bp <= 80.0:
-            f_spread = 40.0
-        else:
-            f_spread = 25.0
-    else:
-        f_spread = 50.0
-
-    score = round(f_sentiment * 0.35 + f_yield * 0.30 + f_52w * 0.20 + f_spread * 0.15, 1)
-
-    # 五档动态金字塔乘数
-    if score <= 20.0:
-        tier = "extreme_fear"
-        tier_label = "极度冰点"
-        action = "翻倍定投 (2.0x)"
-        multiplier = 2.0
-        badge_color = "emerald"
-    elif score <= 40.0:
-        tier = "fear"
-        tier_label = "悲观低估"
-        action = "适度加码 (1.5x)"
-        multiplier = 1.5
-        badge_color = "teal"
-    elif score <= 60.0:
-        tier = "neutral"
-        tier_label = "中性博弈"
-        action = "基准定投 (1.0x)"
-        multiplier = 1.0
-        badge_color = "indigo"
-    elif score <= 80.0:
-        tier = "greed"
-        tier_label = "亢奋防守"
-        action = "减半跟车 (0.5x)"
-        multiplier = 0.5
-        badge_color = "amber"
-    else:
-        tier = "extreme_greed"
-        tier_label = "极度泡沫"
-        action = "停投止盈 (0.0x)"
-        multiplier = 0.0
-        badge_color = "rose"
-
-    return {
-        "score": score,
-        "tier": tier,
-        "tier_label": tier_label,
-        "action": action,
-        "multiplier": multiplier,
-        "badge_color": badge_color,
-        "factors": {
-            "sentiment": round(f_sentiment, 1),
-            "yield_score": round(f_yield, 1),
-            "yield_val": round(us10y_yield, 3) if (us10y_yield and math.isfinite(us10y_yield)) else None,
-            "pos_52w": round(f_52w, 1),
-            "spread_score": round(f_spread, 1),
-            "spread_bp": round(spread_bp, 1) if (spread_bp and math.isfinite(spread_bp)) else None
-        },
-        "valid": True
-    }
 
 
 def _parse_iso_datetime(value):
@@ -517,6 +429,124 @@ def get_fear_greed_data(now=None):
             return 503, _fear_greed_unavailable_payload()
 
 
+def normalize_valuation_payload(raw):
+    """只取NDX的PE-TTM及上游分位，不采纳上游高低估分类。"""
+    if not isinstance(raw, dict) or raw.get("result_code") != 0:
+        raise ValueError("invalid valuation response")
+    items = (raw.get("data") or {}).get("items")
+    if not isinstance(items, list):
+        raise ValueError("missing valuation items")
+    item = next((x for x in items if isinstance(x, dict) and x.get("index_code") == "NDX"), None)
+    if item is None:
+        raise ValueError("NDX valuation missing")
+    values = [item.get(k) for k in ("pe", "pe_percentile", "ts")]
+    if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in values):
+        raise ValueError("invalid valuation numbers")
+    pe, percentile, timestamp_ms = values
+    if pe <= 0 or not 0 <= percentile <= 1 or timestamp_ms <= 0:
+        raise ValueError("valuation out of range")
+    data_date = datetime.fromtimestamp(timestamp_ms / 1000, timezone(timedelta(hours=8))).date()
+    if data_date > datetime.now(timezone(timedelta(hours=8))).date():
+        raise ValueError("future valuation date")
+    return {"source": "danjuan", "symbol": "NDX", "metric": "pe_ttm", "pe": pe,
+            "pe_percentile": round(percentile * 100, 4), "data_date": data_date.isoformat()}
+
+
+def _valid_valuation_cache(payload):
+    if not isinstance(payload, dict) or (payload.get("source"), payload.get("symbol"), payload.get("metric")) != ("danjuan", "NDX", "pe_ttm"):
+        return False
+    pe, percentile = payload.get("pe"), payload.get("pe_percentile")
+    if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in (pe, percentile)):
+        return False
+    try:
+        data_date = datetime.strptime(payload["data_date"], "%Y-%m-%d").date()
+    except (KeyError, TypeError, ValueError):
+        return False
+    return pe > 0 and 0 <= percentile <= 100 and data_date <= datetime.now(timezone(timedelta(hours=8))).date()
+
+
+def fetch_valuation_upstream():
+    request = urllib.request.Request(VALUATION_URL, headers={
+        "User-Agent": "Mozilla/5.0", "Accept": "application/json",
+        "Referer": "https://danjuanfunds.com/"})
+    with urllib.request.urlopen(request, timeout=8) as response:
+        return json.loads(response.read(2_000_000).decode("utf-8"))
+
+
+def _save_valuation_cache():
+    """保存最后有效快照与尝试时间；失败冷却在进程重启后也有效。"""
+    os.makedirs(os.path.dirname(VALUATION_CACHE_FILE), exist_ok=True)
+    temp_file = VALUATION_CACHE_FILE + ".tmp"
+    try:
+        with open(temp_file, "w", encoding="utf-8") as target:
+            json.dump({k: v for k, v in valuation_cache.items() if k != "initialized"}, target,
+                      ensure_ascii=False, allow_nan=False)
+            target.flush()
+            os.fsync(target.fileno())
+        os.replace(temp_file, VALUATION_CACHE_FILE)
+    finally:
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+
+
+def get_valuation_data(now=None):
+    """独立只读缓存；调用方无法强制刷新或指定任意上游URL。"""
+    now = time.time() if now is None else float(now)
+    with valuation_lock:
+        if not valuation_cache["initialized"]:
+            try:
+                with open(VALUATION_CACHE_FILE, encoding="utf-8") as source:
+                    saved = json.load(source)
+                attempt = saved["last_attempt_epoch"]
+                if isinstance(attempt, bool) or not isinstance(attempt, (int, float)) or not math.isfinite(attempt) or not 0 < attempt <= now:
+                    raise ValueError("invalid cached attempt time")
+                payload = saved.get("payload")
+                success = saved.get("last_success_epoch", 0.0)
+                if isinstance(success, bool) or not isinstance(success, (int, float)) or not math.isfinite(success) or not 0 <= success <= attempt:
+                    raise ValueError("invalid cached success time")
+                if payload is not None and (not _valid_valuation_cache(payload) or not _parse_iso_datetime(saved.get("last_success_at"))):
+                    raise ValueError("invalid cached valuation")
+                if payload is not None and success <= 0:
+                    raise ValueError("missing cached success time")
+                valuation_cache.update({"payload": payload, "last_attempt_epoch": attempt,
+                                        "last_success_at": saved.get("last_success_at", ""),
+                                        "last_success_epoch": success})
+            except FileNotFoundError:
+                pass
+            except Exception as exc:
+                print(f"[Warning] 忽略估值缓存: {exc}", file=sys.stderr)
+            valuation_cache["initialized"] = True
+
+        attempt = valuation_cache["last_attempt_epoch"]
+        if not attempt or now - attempt >= VALUATION_CACHE_TTL or now < attempt:
+            valuation_cache["last_attempt_epoch"] = now
+            try:
+                payload = normalize_valuation_payload(fetch_valuation_upstream())
+                if valuation_cache["payload"] and payload["data_date"] < valuation_cache["payload"]["data_date"]:
+                    raise ValueError("valuation date moved backwards")
+                valuation_cache.update({"payload": payload,
+                    "last_success_at": datetime.fromtimestamp(now, timezone.utc).isoformat(timespec="seconds"),
+                    "last_success_epoch": now})
+            except Exception as exc:
+                print(f"[Warning] 估值拉取失败: {exc}", file=sys.stderr)
+            try:
+                _save_valuation_cache()
+            except Exception as exc:
+                print(f"[Warning] 保存估值缓存失败: {exc}", file=sys.stderr)
+
+        payload = valuation_cache["payload"]
+        if payload is None:
+            return 503, {"code": 503, "message": "valuation unavailable",
+                         "data": {"valid": False, "status": "unavailable"}}
+        data_old = (datetime.fromtimestamp(now, timezone(timedelta(hours=8))).date() -
+                    datetime.strptime(payload["data_date"], "%Y-%m-%d").date()).days > 7
+        failed = valuation_cache["last_success_epoch"] < valuation_cache["last_attempt_epoch"]
+        stale = failed or data_old
+        return 200, {"code": 200, "message": "success", "data": {
+            **payload, "valid": True, "stale": stale, "data_old": data_old,
+            "status": "stale" if stale else "fresh", "last_success_at": valuation_cache["last_success_at"]}}
+
+
 def discover_etfs_online(force=False):
     """
     标的池管理状态机：
@@ -679,7 +709,7 @@ def get_market_data(force=False):
         active_sp500_etfs = registry["sp500_etfs"]
 
         all_symbols = [item["symbol"] for item in active_broad_etfs + active_sector_etfs + active_sp500_etfs]
-        tc_url = "http://qt.gtimg.cn/q=" + ",".join(all_symbols + ["usQQQ"])
+        tc_url = "http://qt.gtimg.cn/q=" + ",".join(all_symbols)
         sina_url = "http://hq.sinajs.cn/list=hf_NQ,hf_ES,fx_susdcnh,gb_$ndx,gb_$spx,globalbd_us2yt,globalbd_us5yt,globalbd_us10yt,globalbd_us30yt"
 
         # 抓取腾讯 A 股 ETF 行情与新浪外盘期货/汇率
@@ -854,31 +884,14 @@ def get_market_data(force=False):
         else:
             sp500_scale_factor = None
 
-        # --- 解析各 ETF 行情与外盘 QQQ 52周极值 ---
+        # --- 解析各 ETF 行情 ---
         quote_map = {}
-        qqq_52w = {"price": 0.0, "high_52w": 0.0, "low_52w": 0.0, "pos_52w": 50.0, "valid": False}
         for line in tc_raw.strip().split(";"):
             line = line.strip()
             if not line or "=" not in line:
                 continue
             var_name, val = line.split("=", 1)
             fields = val.strip('"\n\r ').split("~")
-            if "usQQQ" in var_name and len(fields) > 50:
-                try:
-                    p = float(fields[3]) if fields[3] else 0.0
-                    h = float(fields[48]) if fields[48] else 0.0
-                    l = float(fields[49]) if fields[49] else 0.0
-                    if math.isfinite(p) and p > 0 and math.isfinite(h) and math.isfinite(l) and h > l:
-                        pos = ((p - l) / (h - l)) * 100.0
-                        qqq_52w = {
-                            "price": round(p, 2),
-                            "high_52w": round(h, 2),
-                            "low_52w": round(l, 2),
-                            "pos_52w": round(pos, 1),
-                            "valid": True
-                        }
-                except Exception as ex:
-                    print(f"[Error] Parsing usQQQ 52w: {ex}", file=sys.stderr)
             if len(fields) < 30:
                 continue
             code = fields[2]
@@ -1094,7 +1107,6 @@ def get_market_data(force=False):
                 "ndx_index": ndx_index,
                 "spx_index": spx_index,
                 "us_treasuries": us_treasuries,
-                "qqq_52w": qqq_52w,
                 "scale_factor": round(scale_factor, 5) if scale_factor is not None else None,
                 "sp500_scale_factor": round(sp500_scale_factor, 5) if sp500_scale_factor is not None else None,
                 "avg_premium": avg_premium,
@@ -1326,6 +1338,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(content)
             return
 
+        # 独立低频估值读取，不支持强制刷新参数。
+        if req_path in ["/api/nasdaq-valuation", "/api/nasdaq-valuation/"]:
+            status_code, data = get_valuation_data()
+            content = json.dumps(data, ensure_ascii=False, allow_nan=False).encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
         # 路由 2: 手动强制在线重新拉取标的池
         if req_path in ["/api/refresh-symbols", "/api/refresh-symbols/"]:
             with market_data_lock:
@@ -1507,6 +1531,7 @@ def run_server():
     print(f"🚀 CrossETF 跨境ETF实时溢价追踪服务已启动！[{APP_VERSION}]")
     print(f"👉 本地访问地址: http://127.0.0.1:{PORT}")
     print(f"👉 实时行情 API: http://127.0.0.1:{PORT}/api/quotes")
+    print(f"👉 估值观察 API: http://127.0.0.1:{PORT}/api/nasdaq-valuation")
     print(f"👉 市场情绪 API: http://127.0.0.1:{PORT}/api/fear-greed")
     print(f"👉 历史归档 API: http://127.0.0.1:{PORT}/api/history")
     print(f"👉 标的同步 API: http://127.0.0.1:{PORT}/api/refresh-symbols")

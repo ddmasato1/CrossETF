@@ -442,34 +442,100 @@ def run_tests():
     print("✅ 测试 11 通过: 美债收益率方案A (2Y/10Y/利差倒挂) 解析、熔断与前端展示验证通过")
 
     # -------------------------------------------------------------
-    # 测试 12: 纳指定投风向标 (纯血 QQQM 方案1) 多因子引擎与五档动态乘数
+    # 测试 12: 三因子三档建议与独立估值缓存，防止旧倍数回归
     # -------------------------------------------------------------
-    from server import calculate_nasdaq_dca
-
-    # 1. 常规实盘数据推演 (当前盘面: fg=31.3, 10y=5.107, spread=30.7, pos_52w=81.9)
-    res_normal = calculate_nasdaq_dca(fg_score=31.3, us10y_yield=5.107, spread_bp=30.7, pos_52w=81.9)
-    assert res_normal["valid"] is True, "定投风向标必须有效"
-    assert res_normal["score"] == 52.8, f"实盘打分推算错误: {res_normal['score']}"
-    assert res_normal["multiplier"] == 1.0, "52.8分必须命中 1.0x 基准定投乘数"
-    assert res_normal["tier"] == "neutral", "52.8分必须判定为 neutral 中性博弈"
-
-    # 2. 极端冰点黄金坑场景 (超跌大底: fg=10, 10y=3.0, spread=100, pos_52w=10)
-    res_bottom = calculate_nasdaq_dca(fg_score=10.0, us10y_yield=3.0, spread_bp=100.0, pos_52w=10.0)
-    assert res_bottom["score"] <= 20.0, f"大底得分必须<=20: {res_bottom['score']}"
-    assert res_bottom["multiplier"] == 2.0, "大底必须触发 2.0x 翻倍定投"
-    assert res_bottom["tier"] == "extreme_fear", "大底等级必须为 extreme_fear"
-
-    # 3. 极端泡沫高危区场景 (泡沫顶部: fg=95, 10y=5.5, spread=-30, pos_52w=98)
-    res_top = calculate_nasdaq_dca(fg_score=95.0, us10y_yield=5.5, spread_bp=-30.0, pos_52w=98.0)
-    assert res_top["score"] > 80.0, f"泡沫顶得分必须>80: {res_top['score']}"
-    assert res_top["multiplier"] == 0.0, "泡沫顶必须停投 0.0x"
-    assert res_top["tier"] == "extreme_greed", "泡沫顶等级必须为 extreme_greed"
-
-    # 4. 前端组件绑定校验
-    assert "nasdaqDca" in index_html, "前端模板必须包含 nasdaqDca 响应式计算属性绑定"
-    assert "纳指定投风向标" in index_html, "前端模板必须包含 纳指定投风向标 标题"
-    assert "getDcaBadgeClass" in index_html, "前端模板必须导出 getDcaBadgeClass 辅助函数"
-    print("✅ 测试 12 通过: 纳指定投风向标 (纯血 QQQM 方案1) 多因子引擎与五档动态乘数验证通过")
+    assert not hasattr(server, "calculate_nasdaq_dca"), "旧加权引擎应删除，避免被误用"
+    assert "getDcaGuidance" in index_html and "dcaGuidance.title" in index_html
+    assert "估值暂不可用" in index_html, "没有估值数据时必须明确说明"
+    card = index_html.split('data-dca-card>', 1)[1].split('</section>', 1)[0]
+    guidance = card.split("data-dca-guidance>", 1)[1].split("</div>", 1)[0]
+    assert "dcaGuidance.title" in guidance and "评分因子" in card
+    for retired in ("const nasdaqDca", "getDcaBadgeClass", "综合风险分", "停投止盈", "翻倍定投", "中性代入"):
+        assert retired not in index_html, f"旧评分遗留：{retired}"
+    assert "as_of" in index_html and "last_success_at" in index_html, "情绪双时间应保留"
+    assert "责任" not in card and "仅供观察" not in card
+    assert "pe_percentile" in card and "PE-TTM" not in card and "10Y−2Y利差" not in card
+    assert 'data-dca-context' in card and 'dcaContext.summary' in guidance
+    assert 'PE分位60%' in card and '情绪25%' in card and '美债15%' in card
+    assert 'dcaGuidance.score' in card, "应展示综合参考分"
+    market_source = inspect.getsource(server.get_market_data)
+    assert 'qqq_52w' not in market_source and 'usQQQ' not in market_source, "52周字段及QQQ额外请求必须移除"
+    assert 'qqq_52w' not in index_html and 'pos_52w' not in index_html
+    # 估值采用独立缓存：异常、冷却、重启、并发均不能改变定投计划。
+    from unittest.mock import patch
+    from pathlib import Path
+    from copy import deepcopy
+    from datetime import datetime, timezone
+    raw = {"result_code": 0, "data": {"items": [{"index_code": "NDX", "pe": 28.7417,
+        "pe_percentile": 0.388, "ts": 1792598400000}]}}
+    normalized = server.normalize_valuation_payload(raw)
+    assert normalized["pe_percentile"] == 38.8 and normalized["data_date"] == "2026-10-22"
+    for bad in [True, float("nan"), -1, None]:
+        broken = deepcopy(raw)
+        broken["data"]["items"][0]["pe"] = bad
+        try:
+            server.normalize_valuation_payload(broken)
+            raise AssertionError("异常PE应被拒绝")
+        except ValueError:
+            pass
+    for percentile in (0, 1):
+        edge = deepcopy(raw)
+        edge["data"]["items"][0]["pe_percentile"] = percentile
+        assert server.normalize_valuation_payload(edge)["pe_percentile"] == percentile * 100
+    original_state = deepcopy(server.valuation_cache)
+    empty_state = {"initialized": False, "payload": None, "last_success_at": "",
+                   "last_success_epoch": 0.0, "last_attempt_epoch": 0.0}
+    now = datetime(2026, 10, 23, tzinfo=timezone.utc).timestamp() + 0.25
+    try:
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, "VALUATION_CACHE_FILE", os.path.join(directory, "valuation.json")):
+            server.valuation_cache.update(empty_state)
+            with patch.object(server, "fetch_valuation_upstream", return_value=raw) as upstream:
+                first = server.get_valuation_data(now)
+                assert first[0] == 200 and first[1]["data"]["stale"] is False
+                original_time = first[1]["data"]["last_success_at"]
+                assert server.get_valuation_data(now + 1)[1]["data"]["last_success_at"] == original_time
+                server.valuation_cache.update(empty_state)
+                assert server.get_valuation_data(now + 2)[0] == 200
+                assert upstream.call_count == 1, "重启/缓存命中不得重拉"
+            with patch.object(server, "fetch_valuation_upstream", side_effect=RuntimeError("mock failure")) as upstream:
+                later = now + server.VALUATION_CACHE_TTL
+                stale = server.get_valuation_data(later)
+                assert stale[0] == 200 and stale[1]["data"]["stale"]
+                assert stale[1]["data"]["last_success_at"] == original_time
+                server.valuation_cache.update(empty_state)
+                assert server.get_valuation_data(later + 1)[1]["data"]["stale"]
+                assert upstream.call_count == 1, "失败冷却必须在重启后保留"
+            # 损坏缓存的首次请求失败，应503，随后不得高频重试。
+            Path(server.VALUATION_CACHE_FILE).write_text("broken", encoding="utf-8")
+            server.valuation_cache.update(empty_state)
+            with patch.object(server, "fetch_valuation_upstream", side_effect=RuntimeError("mock failure")) as upstream:
+                assert server.get_valuation_data(now)[0] == 503
+                assert server.get_valuation_data(now + 1)[0] == 503
+                assert upstream.call_count == 1
+            os.remove(server.VALUATION_CACHE_FILE)
+            server.valuation_cache.update(empty_state)
+            def slow_valuation():
+                time.sleep(0.03)
+                return raw
+            with patch.object(server, "fetch_valuation_upstream", side_effect=slow_valuation) as upstream:
+                results = []
+                threads = [threading.Thread(target=lambda: results.append(server.get_valuation_data(now))) for _ in range(6)]
+                for thread in threads: thread.start()
+                for thread in threads: thread.join()
+                assert upstream.call_count == 1 and len(results) == 6
+                assert all(result[0] == 200 for result in results)
+            # 上游日期回退不能覆盖较新的缓存。
+            older = deepcopy(raw)
+            older["data"]["items"][0]["ts"] -= 86400000
+            with patch.object(server, "fetch_valuation_upstream", return_value=older):
+                result = server.get_valuation_data(now + server.VALUATION_CACHE_TTL)
+                assert result[1]["data"]["data_date"] == "2026-10-22" and result[1]["data"]["stale"]
+    finally:
+        server.valuation_cache.clear()
+        server.valuation_cache.update(original_state)
+    assert "get_valuation_data" not in inspect.getsource(server.get_market_data)
+    assert "get_valuation_data" not in inspect.getsource(server.record_daily_history)
+    print("✅ 测试 12 通过: 三因子建议、估值校验/持久化/冷却/并发与行情隔离验证通过")
 
     print("=" * 60)
     print("🎉 全部 12 项核心业务、情绪缓存与响应式结构测试 100% 验证通过！")

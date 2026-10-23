@@ -231,6 +231,23 @@
       pointer-events: none;
       white-space: nowrap;
     }
+    .dca-score-tooltip {
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 30;
+      padding: 8px 10px;
+      line-height: 1.6;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-4px);
+      transition: opacity .15s ease, transform .15s ease, visibility .15s ease;
+    }
+    .dca-score-trigger:hover + .dca-score-tooltip,
+    .dca-score-trigger:focus + .dca-score-tooltip {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
     .fear-greed-temperature-tooltip { bottom: 20px; }
     .fear-greed-temperature-labels {
       display: flex;
@@ -289,9 +306,6 @@
     }
 
     .dca-card { min-height: 190px; }
-    .dca-factor-label { font-size: 10px; color: #64748b; }
-    .dark .dca-factor-label { color: #94a3b8; }
-    .dca-factor-value { margin-top: 3px; font-size: 13px; font-weight: 700; }
     @media (max-width: 479px) {
       .fear-greed-card { grid-template-columns: minmax(0, 1fr); gap: 12px; }
       .fear-greed-chart-panel { border-top: 1px solid #e2e8f0; padding-top: 10px; }
@@ -461,37 +475,32 @@
           <!-- 纳指定投核心信号 -->
           <div class="flex items-center gap-1.5">
             <span class="w-4 h-4 rounded bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400 flex items-center justify-center font-black text-[10px]">标</span>
-            <span class="font-bold text-slate-800 dark:text-slate-100">纳指定投:</span>
-            <strong class="font-black font-tabular text-slate-900 dark:text-white">{{ nasdaqDca.availableCount ? nasdaqDca.score + "分" : "--" }}</strong>
-            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold font-tabular shadow-xs" :class="getDcaBadgeClass(nasdaqDca.availableCount ? nasdaqDca.badgeColor : null)">
-              {{ nasdaqDca.availableCount ? nasdaqDca.action : "数据不足" }}
-            </span>
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">纳指定投:</span>
+            <span class="whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-bold" :class="dcaGuidance.badgeClass">{{ dcaGuidance.title }}</span>
           </div>
 
           <span class="text-slate-300 dark:text-slate-700 hidden sm:inline">|</span>
 
           <!-- CME 纳指行情快照 -->
           <div class="hidden sm:flex items-center gap-1 font-tabular">
-            <span class="text-slate-500">纳指期货:</span>
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">纳指期货:</span>
             <span class="font-semibold text-slate-800 dark:text-slate-200">{{ formatNumber(macro.cme_nq?.price, 2) }}</span>
             <span :class="getPriceChangeClass(macro.cme_nq?.change_pct)" class="font-bold">{{ formatPercentSign(macro.cme_nq?.change_pct) }}</span>
           </div>
 
           <span class="text-slate-300 dark:text-slate-700 hidden md:inline">|</span>
 
-          <!-- 10Y 美债与利差倒挂警报 -->
+          <!-- 10Y 美债收益率快照 -->
           <div class="hidden md:flex items-center gap-1.5 font-tabular">
-            <span class="text-slate-500">10Y美债:</span>
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">10Y美债:</span>
             <span class="font-semibold text-slate-800 dark:text-slate-200">{{ formatNumber(macro.us_treasuries?.us10y?.yield, 3) }}%</span>
-            <span v-if="macro.us_treasuries?.spread_10y_2y?.is_inverted" class="px-1.5 py-0.2 rounded bg-rose-500 text-white text-[10px] font-bold animate-pulse">倒挂警报</span>
-            <span v-else class="text-slate-400 text-[11px]">(利差 {{ formatBpSign(macro.us_treasuries?.spread_10y_2y?.spread_bp) }})</span>
           </div>
 
           <span class="text-slate-300 dark:text-slate-700 hidden lg:inline">|</span>
 
           <!-- CNN 情绪快照 -->
           <div class="hidden lg:flex items-center gap-1 font-tabular">
-            <span class="text-slate-500">情绪:</span>
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">情绪:</span>
             <span class="font-bold" :class="fearGreedTone">{{ fearGreed?.valid ? Math.round(fearGreed.score) : "--" }} {{ fearGreed?.rating_label || "" }}</span>
           </div>
         </div>
@@ -582,46 +591,53 @@
 
         <!-- 并排双核：左半侧纳指定投风向标 (50%) + 右半侧独立市场情绪模块 (50%) -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 pt-1 items-stretch">
-          <!-- 风向标：评分概览、因子组成、策略提示 -->
-          <section class="dca-card min-w-0 bg-slate-50/80 dark:bg-slate-800/40 rounded-xl p-3 flex flex-col gap-3 border border-slate-200/60 dark:border-slate-800/80" aria-labelledby="nasdaqDcaTitle" data-dca-card>
-            <div class="flex flex-wrap items-center justify-between gap-2">
+          <!-- 三因子加权参考：PE分位60%、情绪25%、美债15% -->
+          <section class="dca-card min-w-0 bg-slate-50/80 dark:bg-slate-800/40 rounded-xl p-3 flex flex-col gap-2 border border-slate-200/60 dark:border-slate-800/80" aria-labelledby="nasdaqDcaTitle" data-dca-card>
+            <div class="flex flex-wrap items-center justify-between gap-1">
               <div class="flex items-center gap-1.5">
                 <span class="w-4 h-4 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400 flex items-center justify-center font-black text-[10px]">标</span>
                 <h3 id="nasdaqDcaTitle" class="text-xs font-bold text-slate-900 dark:text-slate-100">纳指定投风向标</h3>
               </div>
-              <div class="flex items-center gap-2">
-                <span class="text-[10px] text-slate-500">综合风险分</span>
-                <strong class="text-xl font-black font-tabular text-slate-900 dark:text-white">{{ nasdaqDca.availableCount ? nasdaqDca.score : '--' }}</strong>
-                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold font-tabular" :class="getDcaBadgeClass(nasdaqDca.availableCount ? nasdaqDca.badgeColor : null)">
-                  {{ nasdaqDca.availableCount ? nasdaqDca.action : '数据不足' }}
-                </span>
+              <div class="relative flex items-center gap-2">
+                <button v-if="dcaGuidance.score !== null" type="button" class="dca-score-trigger text-sm font-bold font-tabular text-slate-800 dark:text-slate-100 cursor-help" aria-label="综合参考分" aria-describedby="dcaScoreTooltip">{{ dcaGuidance.score }}<span class="text-[9px] font-normal ml-0.5">分</span></button>
+                <div id="dcaScoreTooltip" class="fear-greed-floating-tooltip dca-score-tooltip" role="tooltip">
+                  <div class="mb-1 font-bold">评分分档</div>
+                  <div>0 ≤ 分数 &lt; 30：可以增加至1.5倍金额</div>
+                  <div>30 ≤ 分数 ≤ 70：买入，保持1.0倍金额</div>
+                  <div>70 &lt; 分数 ≤ 100：暂停买入，或者0.5倍金额买入</div>
+                  <div class="mt-1 font-normal">高于70分：已有持仓可考虑适当止盈</div>
+                </div>
+                <span class="whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium" :class="dcaGuidance.badgeClass">{{ dcaGuidance.tier }}</span>
               </div>
             </div>
-
-            <div class="grid grid-cols-2 gap-x-4 gap-y-2 font-tabular" aria-label="评分因子组成">
-              <div>
-                <div class="dca-factor-label">市场情绪 · 35%</div>
-                <div class="dca-factor-value" :class="nasdaqDca.availability.sentiment ? fearGreedTone : 'text-slate-400'">{{ nasdaqDca.availability.sentiment ? (fearGreed.rating_label + ' ' + Math.round(nasdaqDca.factors.sentiment)) : '--' }}</div>
+            <div class="rounded-lg px-2 py-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5" :class="dcaGuidance.panelClass" data-dca-guidance>
+              <h4 class="text-sm font-bold">{{ dcaGuidance.title }}</h4>
+              <span class="text-[10px] opacity-80">{{ dcaContext.summary }}</span>
+              <p v-if="dcaGuidance.detail" class="w-full text-[10px]">{{ dcaGuidance.detail }}</p>
+            </div>
+            <div class="grid grid-cols-3 gap-3 text-[11px] font-tabular" aria-label="评分因子" data-dca-valuation data-dca-context>
+              <div class="flex flex-col gap-0.5 min-w-0">
+                <span class="text-slate-500 dark:text-slate-400">PE分位</span>
+                <strong class="text-slate-800 dark:text-slate-100">{{ valuation?.valid ? formatNumber(valuation.pe_percentile, 1) + '%' : '--' }}</strong>
               </div>
-              <div>
-                <div class="dca-factor-label">美债10Y · 30%</div>
-                <div class="dca-factor-value">{{ nasdaqDca.availability.yield ? formatNumber(nasdaqDca.factors.yieldVal, 3) + '%' : '--' }}</div>
+              <div class="flex flex-col gap-0.5 min-w-0">
+                <span class="text-slate-500 dark:text-slate-400">情绪</span>
+                <strong :class="dcaContext.sentimentValid ? fearGreedTone : 'text-slate-400'">{{ dcaContext.sentiment }}</strong>
               </div>
-              <div>
-                <div class="dca-factor-label">QQQ 52周位置 · 20%</div>
-                <div class="dca-factor-value">{{ nasdaqDca.availability.pos52w ? formatNumber(nasdaqDca.factors.pos52w, 1) + '%' : '--' }}</div>
-              </div>
-              <div>
-                <div class="dca-factor-label">10Y−2Y利差 · 15%</div>
-                <div class="dca-factor-value" :class="nasdaqDca.availability.spread ? (nasdaqDca.factors.spreadBp < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400') : 'text-slate-400'">{{ nasdaqDca.availability.spread ? formatBpSign(nasdaqDca.factors.spreadBp) : '--' }}</div>
+              <div class="flex flex-col gap-0.5 min-w-0">
+                <span class="text-slate-500 dark:text-slate-400" title="2%对应0分，4%对应50分，6%对应100分，超出区间截断">美债10Y</span>
+                <strong class="text-slate-800 dark:text-slate-100">{{ dcaContext.yieldValid ? formatNumber(dcaContext.yieldValue, 3) + '%' : '--' }}</strong>
               </div>
             </div>
-
-            <div class="mt-auto rounded-lg px-2.5 py-2" :class="getDcaBadgeClass(nasdaqDca.availableCount ? nasdaqDca.badgeColor : null)" data-dca-guidance>
-              <div class="text-[10px] font-medium opacity-75">策略提示 · {{ nasdaqDca.availableCount ? nasdaqDca.tierLabel : '等待数据' }}</div>
-              <p class="mt-1 text-xs font-semibold leading-relaxed">{{ nasdaqDca.guidance }}</p>
-              <p v-if="nasdaqDca.availableCount > 0 && nasdaqDca.availableCount < 4" class="mt-1 text-[10px] leading-relaxed opacity-80">部分数据缺失，评分含中性代入</p>
-              <p v-if="nasdaqDca.availability.sentiment && fearGreed?.stale" class="mt-1 text-[10px] opacity-80">情绪因子使用缓存数据</p>
+            <p class="text-[10px] leading-snug text-slate-500 dark:text-slate-400" data-dca-weights>权重：PE分位60% · 情绪25% · 美债15%</p>
+            <div class="mt-auto pt-1 border-t border-slate-200/70 dark:border-slate-700 flex items-center gap-2 overflow-x-auto whitespace-nowrap text-[9px] leading-relaxed text-slate-400 font-tabular" data-dca-meta>
+              <div v-if="valuation?.valid" class="flex shrink-0 gap-2">
+                <span>估值 <time :datetime="valuation.data_date">{{ valuation.data_date }}</time></span>
+                <span>拉取 <time :datetime="valuation.last_success_at">{{ formatFearGreedTime(valuation.last_success_at) }}</time></span>
+                <span v-if="valuation.stale || valuationError" class="text-amber-700 dark:text-amber-400">{{ valuation.data_old ? '数据过期' : '缓存数据' }}</span>
+              </div>
+              <div v-else>{{ valuationLoading ? '正在读取估值…' : '估值暂不可用' }}</div>
+              <a href="https://danjuanfunds.com/djmodule/value-center" target="_blank" rel="noopener noreferrer" class="shrink-0 underline">来源：雪球基金</a>
             </div>
           </section>
 
@@ -633,7 +649,6 @@
                 <div id="fearGreedTitle" class="fear-greed-eyebrow flex flex-wrap items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
                   <span class="w-4 h-4 rounded bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 flex items-center justify-center font-black text-[10px]">情</span>
                   <span class="whitespace-nowrap">恐惧贪婪指数</span>
-                  <span v-if="fearGreed?.stale" class="whitespace-nowrap rounded-full border border-amber-300 bg-amber-50 px-1 py-0.2 text-[9px] font-bold text-amber-700 dark:border-amber-700/70 dark:bg-amber-950/50 dark:text-amber-300">缓存数据</span>
                 </div>
                 <div class="fear-greed-score-line !mt-1 !w-full">
                   <strong class="fear-greed-score !text-2xl" :class="fearGreedTone">{{ fearGreed?.valid ? Math.round(fearGreed.score) : "--" }}</strong>
@@ -1239,7 +1254,7 @@
     <!-- 页脚 -->
     <footer class="mt-6 pt-3 pb-6 border-t border-slate-200 dark:border-slate-800/50 text-center text-[11px] text-slate-400 dark:text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-1">
       <div>CrossETF · 跨境ETF实时溢价追踪 (纳指100 + 标普500)</div>
-      <div>数据源：天天基金、CME Group、新浪财经、腾讯行情、FearGreedFlow</div>
+      <div>数据源：天天基金、CME Group、新浪财经、腾讯行情、FearGreedFlow、雪球基金</div>
     </footer>
 
   </div>
@@ -1320,6 +1335,7 @@
 
         let countdownTimer = null;
         let fearGreedTimer = null;
+        let valuationTimer = null;
         let fearGreedResizeObserver = null;
 
         const macro = ref({
@@ -1329,8 +1345,6 @@
           ndx_index: {},
           spx_index: {},
           us_treasuries: {},
-          nasdaq_dca: {},
-          qqq_52w: {},
           scale_factor: 1.0,
           avg_premium: 0.0,
           min_premium_etf: null,
@@ -1338,10 +1352,48 @@
         });
 
         // 系统版本号
-        const appVersion = ref('v1.6.0');
+        const appVersion = ref('v1.7.0');
 
         // 独立市场情绪状态：与 ETF 行情、排序和归档完全隔离。
         const fearGreed = ref(null);
+        const valuation = ref(null);
+        const valuationLoading = ref(false);
+        const valuationError = ref(false);
+        // 三因子统一为0~100：美债收益率在2%~6%之间线性映射并截断。
+        const getDcaGuidance = (data, sentiment, treasury, loading = false) => {
+          const percentile = data?.pe_percentile;
+          const emotion = sentiment?.score;
+          const yieldValue = treasury?.yield;
+          const base = {
+            score: null, title: loading ? '正在读取数据' : '数据不足', tier: '等待数据', detail: '',
+            badgeClass: 'bg-slate-200/70 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+            panelClass: 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+          };
+          if (!data?.valid || !Number.isFinite(percentile) || percentile < 0 || percentile > 100 ||
+              !sentiment?.valid || !Number.isFinite(emotion) || emotion < 0 || emotion > 100 ||
+              !treasury?.valid || !Number.isFinite(yieldValue) || yieldValue <= 0) return base;
+          // 有效缓存持续参与评分，刷新成功后使用新值；过期或刷新失败不清空建议。
+          const yieldScore = Math.min(100, Math.max(0, (yieldValue - 2) / 4 * 100));
+          const score = Number((percentile * 0.60 + emotion * 0.25 + yieldScore * 0.15).toFixed(1));
+          if (score < 30) return {
+            score, title: '可以考虑买入', tier: '可以考虑买入', detail: '',
+            badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+            panelClass: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
+          };
+          if (score <= 70) return {
+            score, title: '谨慎买入', tier: '谨慎买入', detail: '',
+            badgeClass: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300',
+            panelClass: 'border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200'
+          };
+          return {
+            score, title: '放缓或暂停买入', tier: '放缓或暂停买入', detail: '已有持仓可考虑适当止盈',
+            badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
+            panelClass: 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'
+          };
+        };
+        const dcaGuidance = computed(() => getDcaGuidance(
+          valuation.value, fearGreed.value, macro.value?.us_treasuries?.us10y,
+          valuationLoading.value || fearGreedLoading.value));
         const fearGreedLoading = ref(true);
         const fearGreedError = ref(null);
         const fearGreedTipOpen = ref(false);
@@ -1351,6 +1403,20 @@
         const fearGreedTemperatureTip = ref({ visible: false, value: 0, left: 0, transform: 'translateX(-50%)' });
         const fearGreedChartTip = ref({ visible: false, x: 0, y: 0, date: '', value: 0 });
         let fearGreedChartPoints = [];
+
+        const getDcaContext = (sentiment, treasuries = {}) => {
+          const sentimentValid = Boolean(sentiment?.valid && Number.isFinite(sentiment.score) && sentiment.score >= 0 && sentiment.score <= 100);
+          const score = sentimentValid ? sentiment.score : null;
+          const sentimentLabel = score === null ? '暂无' : score < 25 ? '极度恐惧' : score < 45 ? '恐惧' : score < 55 ? '中性' : score < 75 ? '贪婪' : '极度贪婪';
+          const yieldValue = treasuries?.us10y?.yield;
+          const yieldValid = Boolean(treasuries?.us10y?.valid && Number.isFinite(yieldValue) && yieldValue > 0);
+          return {
+            sentimentValid, sentiment: sentimentValid ? `${sentimentLabel} ${Math.round(score)}` : '--',
+            yieldValid, yieldValue,
+            summary: `情绪${sentimentLabel}`
+          };
+        };
+        const dcaContext = computed(() => getDcaContext(fearGreed.value, macro.value?.us_treasuries));
 
         const fearGreedTone = computed(() => {
           const rating = fearGreed.value?.rating || 'neutral';
@@ -1486,102 +1552,6 @@
         const activeScaleFactor = computed(() => {
           if (activeTab.value === 'nasdaq') return macro.value.scale_factor;
           return macro.value.sp500_scale_factor;
-        });
-
-        // 纯血纳指 (QQQM/长桥专用) 定投风向标多因子量化评估
-        const nasdaqDca = computed(() => {
-          const tr = macro.value?.us_treasuries || {};
-          const q52 = macro.value?.qqq_52w || {};
-          const availability = {
-            sentiment: Boolean(fearGreed.value?.valid && Number.isFinite(fearGreed.value.score) && fearGreed.value.score >= 0 && fearGreed.value.score <= 100),
-            yield: Boolean(tr.us10y?.valid && Number.isFinite(tr.us10y.yield) && tr.us10y.yield > 0),
-            spread: Boolean(tr.spread_10y_2y?.valid && Number.isFinite(tr.spread_10y_2y.spread_bp)),
-            pos52w: Boolean(q52.valid && Number.isFinite(q52.pos_52w) && q52.pos_52w >= 0 && q52.pos_52w <= 100)
-          };
-          const availableCount = Object.values(availability).filter(Boolean).length;
-          const fg = availability.sentiment ? fearGreed.value.score : 50.0;
-          const y10 = availability.yield ? tr.us10y.yield : null;
-          const sBp = availability.spread ? tr.spread_10y_2y.spread_bp : null;
-          const pos = availability.pos52w ? q52.pos_52w : null;
-
-          // 因子1: 情绪 (35%)
-          const fSentiment = fg;
-
-          // 因子2: 10Y美债折现 (30%)
-          let fYield = 50.0;
-          if (y10 !== null && y10 > 0) {
-            if (y10 <= 3.5) fYield = 20.0;
-            else if (y10 <= 4.5) fYield = 45.0;
-            else if (y10 <= 5.2) fYield = 65.0;
-            else fYield = 90.0;
-          }
-
-          // 因子3: 52周相对位置 (20%)
-          let f52w = 50.0;
-          if (pos !== null && pos >= 0 && pos <= 100) {
-            f52w = pos;
-          }
-
-          // 因子4: 10Y-2Y利差 (15%)
-          let fSpread = 50.0;
-          if (sBp !== null) {
-            if (sBp < -20.0) fSpread = 75.0;
-            else if (sBp < 0.0) fSpread = 65.0;
-            else if (sBp <= 80.0) fSpread = 40.0;
-            else fSpread = 25.0;
-          }
-
-          const rawScore = fSentiment * 0.35 + fYield * 0.30 + f52w * 0.20 + fSpread * 0.15;
-          const score = Number(rawScore.toFixed(1));
-
-          let tier = 'neutral', tierLabel = '中性博弈', action = '基准定投 (1.0x)', multiplier = 1.0, badgeColor = 'indigo';
-          if (score <= 20.0) {
-            tier = 'extreme_fear'; tierLabel = '极度冰点'; action = '翻倍定投 (2.0x)'; multiplier = 2.0; badgeColor = 'emerald';
-          } else if (score <= 40.0) {
-            tier = 'fear'; tierLabel = '悲观低估'; action = '适度加码 (1.5x)'; multiplier = 1.5; badgeColor = 'teal';
-          } else if (score <= 60.0) {
-            tier = 'neutral'; tierLabel = '中性博弈'; action = '基准定投 (1.0x)'; multiplier = 1.0; badgeColor = 'indigo';
-          } else if (score <= 80.0) {
-            tier = 'greed'; tierLabel = '亢奋防守'; action = '减半跟车 (0.5x)'; multiplier = 0.5; badgeColor = 'amber';
-          } else {
-            tier = 'extreme_greed'; tierLabel = '极度泡沫'; action = '停投止盈 (0.0x)'; multiplier = 0.0; badgeColor = 'rose';
-          }
-
-          const guidanceByTier = {
-            extreme_fear: '按基准金额的2倍定投，分期执行加码。',
-            fear: '按基准金额的1.5倍定投，适度增加投入。',
-            neutral: '保持1倍金额定投，按原计划执行。',
-            greed: '模型风险分偏高，定投金额减半。',
-            extreme_greed: '模型风险分较高，暂停定投，考虑机动仓分批止盈。'
-          };
-
-          return {
-            availability,
-            availableCount,
-            guidance: availableCount ? guidanceByTier[tier] : "数据不足，暂不提供策略提示",
-            score,
-            tier,
-            tierLabel,
-            action,
-            multiplier,
-            badgeColor,
-            factors: {
-              sentiment: Number(fSentiment.toFixed(1)),
-              yieldScore: fYield,
-              yieldVal: y10,
-              pos52w: pos !== null ? Number(pos.toFixed(1)) : null,
-              spreadScore: fSpread,
-              spreadBp: sBp,
-              // 兼容下划线命名与对象嵌套访问
-              yield_val: y10,
-              pos_52w: pos !== null ? Number(pos.toFixed(1)) : null,
-              spread_bp: sBp,
-              treasury: { value: y10 },
-              tech_52w: { pos: pos !== null ? Number(pos.toFixed(1)) : null },
-              yield_curve: { spread_bp: sBp }
-            },
-            valid: true
-          };
         });
 
         // 当前分类中，全场实时溢价率最低的标的代码（必须具有有效现价且估值非空）
@@ -1768,6 +1738,21 @@
           }
         };
 
+        const fetchValuation = async () => {
+          valuationLoading.value = true;
+          try {
+            const response = await fetch('/api/nasdaq-valuation');
+            const body = await response.json();
+            if (!response.ok || !body.data?.valid) throw new Error('valuation unavailable');
+            valuation.value = body.data;
+            valuationError.value = false;
+          } catch (error) {
+            valuationError.value = true;
+          } finally {
+            valuationLoading.value = false;
+          }
+        };
+
         // 获取行情数据
         const fetchData = async (isManual = false) => {
           if (isManual) loading.value = true;
@@ -1814,7 +1799,7 @@
 
         const refreshAll = async () => {
           loading.value = true;
-          await Promise.allSettled([fetchData(false), fetchFearGreed()]);
+          await Promise.allSettled([fetchData(false), fetchFearGreed(), fetchValuation()]);
           setTimeout(() => { loading.value = false; }, 300);
         };
 
@@ -1982,15 +1967,6 @@
           return 'text-slate-500 dark:text-slate-400';
         };
 
-        const getDcaBadgeClass = (color) => {
-          if (color === 'emerald') return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30';
-          if (color === 'teal') return 'bg-teal-500/15 text-teal-700 dark:text-teal-400 border border-teal-500/30';
-          if (color === 'indigo') return 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30';
-          if (color === 'amber') return 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30';
-          if (color === 'rose') return 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30';
-          return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
-        };
-
         const getPremiumTextColor = (premium) => {
           if (premium === null || premium === undefined || isNaN(premium)) return 'text-slate-400 dark:text-slate-500';
           if (premium < 3.0) return 'text-emerald-600 dark:text-emerald-400';
@@ -2088,6 +2064,7 @@
           refreshAll();
           startTimers();
           fearGreedTimer = setInterval(fetchFearGreed, 60 * 60 * 1000);
+          valuationTimer = setInterval(fetchValuation, 6 * 60 * 60 * 1000);
           nextTick(() => {
             if (fearGreedCanvasWrap.value && 'ResizeObserver' in window) {
               fearGreedResizeObserver = new ResizeObserver(() => drawFearGreedChart());
@@ -2101,6 +2078,7 @@
         onUnmounted(() => {
           stopTimers();
           if (fearGreedTimer) clearInterval(fearGreedTimer);
+          if (valuationTimer) clearInterval(valuationTimer);
           if (fearGreedResizeObserver) fearGreedResizeObserver.disconnect();
           document.removeEventListener('keydown', onHistoryKeydown);
           document.removeEventListener('pointerdown', onRefreshMenuPointerdown);
@@ -2162,6 +2140,11 @@
           fetchData,
           refreshAll,
           fearGreed,
+          valuation,
+          dcaGuidance,
+          dcaContext,
+          valuationLoading,
+          valuationError,
           fearGreedLoading,
           fearGreedError,
           fearGreedTipOpen,
@@ -2195,8 +2178,6 @@
           formatPercentSign,
           formatBpSign,
           getPriceChangeClass,
-          getDcaBadgeClass,
-          nasdaqDca,
           getPremiumTextColor,
           getPremiumBadgeClass,
         };
