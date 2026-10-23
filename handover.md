@@ -1,6 +1,6 @@
 # CrossETF 项目交接
 
-正式版本基线为**v1.7.0**，已发布[GitHub Release](https://github.com/ddmasato1/CrossETF/releases/tag/v1.7.0)。当前`main`另外包含已推送的信号灯、详情建议去重与文档整理，尚未发布新标签。本文保留当前运行与维护所需信息；已替代的试用方案已清理，版本历史见[CHANGELOG](CHANGELOG.md)。
+当前正式版本为**v1.7.1**，分支`main`，已发布[GitHub Release](https://github.com/ddmasato1/CrossETF/releases/tag/v1.7.1)，包含信号灯、详情建议去重与文档整理。本文保留当前运行与维护所需信息；已替代的试用方案已清理，版本历史见[CHANGELOG](CHANGELOG.md)。
 
 ## 项目与架构
 
@@ -21,7 +21,7 @@
 6. 费率由ETF_TOTAL_FEES维护；标的池通过天天基金发现，失败时使用本地缓存或DEFAULT_*内置列表。
 7. 美债、情绪、估值及定投建议不干预ETF估值、排序、价差测算或收盘归档。
 
-## 定投参考（v1.7.0）
+## 定投参考（v1.7.1）
 
 完整定义见[因子方案](docs/nasdaq-dca-indicator/factor-redesign-proposal.md)。
 
@@ -82,6 +82,6 @@ docker compose up -d --build
 
 - v1.7.0发布前12项核心、5项并发及前端语法/15项评分缓存文案检查通过；本地首页、行情版本与估值接口已验证。
 - 开发分支codex/dca-factor-redesign已合并main并推送，标签v1.7.0及GitHub Release已发布。
-- v1.7.0之后的界面及文档更新已于2026-10-23推送至main（提交510a348）；已发布的v1.7.0标签和云端部署未因此改变。
+- v1.7.1在v1.7.0基础上发布信号灯、详情建议去重及文档修正，前后端版本号同步；旧标签不修改，本次不操作云端部署。
 - 详情内已移除重复建议横幅，顶部折叠摘要保留灯号及行动建议；评分浮层仍展示三档规则。
 - AGENT.md及其本地私有忽略规则保留于工作区，不入发布提交。临时检查脚本、预览HTML和截图不入库；已有受跟踪的历史资源不作本轮新增证据。

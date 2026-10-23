@@ -21,7 +21,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 
 # 基础配置
-APP_VERSION = "v1.7.0"
+APP_VERSION = "v1.7.1"
 BIND_ADDRESS = os.environ.get("BIND_ADDRESS", "127.0.0.1")
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
