@@ -448,14 +448,14 @@ def run_tests():
     assert "getDcaGuidance" in index_html and "dcaGuidance.title" in index_html
     assert "估值暂不可用" in index_html, "没有估值数据时必须明确说明"
     card = index_html.split('data-dca-card>', 1)[1].split('</section>', 1)[0]
-    guidance = card.split("data-dca-guidance>", 1)[1].split("</div>", 1)[0]
-    assert "dcaGuidance.title" in guidance and "评分因子" in card
+    assert "data-dca-guidance" not in card and "dcaGuidance.title" not in card, "详情不重复显示买入建议"
+    assert "评分因子" in card
     for retired in ("const nasdaqDca", "getDcaBadgeClass", "综合风险分", "停投止盈", "翻倍定投", "中性代入"):
         assert retired not in index_html, f"旧评分遗留：{retired}"
     assert "as_of" in index_html and "last_success_at" in index_html, "情绪双时间应保留"
     assert "责任" not in card and "仅供观察" not in card
     assert "pe_percentile" in card and "PE-TTM" not in card and "10Y−2Y利差" not in card
-    assert 'data-dca-context' in card and 'dcaContext.summary' in guidance
+    assert 'data-dca-context' in card and 'dcaContext.summary' not in card
     assert 'PE分位60%' in card and '情绪25%' in card and '美债15%' in card
     assert 'dcaGuidance.score' in card, "应展示综合参考分"
     market_source = inspect.getsource(server.get_market_data)

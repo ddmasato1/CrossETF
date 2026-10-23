@@ -476,7 +476,7 @@
           <div class="flex items-center gap-1.5">
             <span class="w-4 h-4 rounded bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400 flex items-center justify-center font-black text-[10px]">标</span>
             <span class="text-xs font-medium text-slate-500 dark:text-slate-400">纳指定投:</span>
-            <span class="whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-bold" :class="dcaGuidance.badgeClass">{{ dcaGuidance.title }}</span>
+            <span class="whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-bold" :class="dcaGuidance.badgeClass"><span v-if="dcaGuidance.score !== null">{{ dcaGuidance.tier }} · </span>{{ dcaGuidance.title }}</span>
           </div>
 
           <span class="text-slate-300 dark:text-slate-700 hidden sm:inline">|</span>
@@ -602,18 +602,13 @@
                 <button v-if="dcaGuidance.score !== null" type="button" class="dca-score-trigger text-sm font-bold font-tabular text-slate-800 dark:text-slate-100 cursor-help" aria-label="综合参考分" aria-describedby="dcaScoreTooltip">{{ dcaGuidance.score }}<span class="text-[9px] font-normal ml-0.5">分</span></button>
                 <div id="dcaScoreTooltip" class="fear-greed-floating-tooltip dca-score-tooltip" role="tooltip">
                   <div class="mb-1 font-bold">评分分档</div>
-                  <div>0 ≤ 分数 &lt; 30：可以增加至1.5倍金额</div>
-                  <div>30 ≤ 分数 ≤ 70：买入，保持1.0倍金额</div>
-                  <div>70 &lt; 分数 ≤ 100：暂停买入，或者0.5倍金额买入</div>
+                  <div class="text-emerald-700 dark:text-emerald-300">绿灯 · 0 ≤ 分数 &lt; 30：可以增加至1.5倍金额</div>
+                  <div class="text-amber-800 dark:text-amber-300">黄灯 · 30 ≤ 分数 ≤ 70：买入，保持1.0倍金额</div>
+                  <div class="text-rose-700 dark:text-rose-300">红灯 · 70 &lt; 分数 ≤ 100：暂停买入，或者0.5倍金额买入</div>
                   <div class="mt-1 font-normal">高于70分：已有持仓可考虑适当止盈</div>
                 </div>
-                <span class="whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium" :class="dcaGuidance.badgeClass">{{ dcaGuidance.tier }}</span>
+                <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium" :class="dcaGuidance.badgeClass"><span v-if="dcaGuidance.score !== null" class="h-1.5 w-1.5 rounded-full" :class="dcaGuidance.lightClass" aria-hidden="true"></span>{{ dcaGuidance.tier }}</span>
               </div>
-            </div>
-            <div class="rounded-lg px-2 py-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5" :class="dcaGuidance.panelClass" data-dca-guidance>
-              <h4 class="text-sm font-bold">{{ dcaGuidance.title }}</h4>
-              <span class="text-[10px] opacity-80">{{ dcaContext.summary }}</span>
-              <p v-if="dcaGuidance.detail" class="w-full text-[10px]">{{ dcaGuidance.detail }}</p>
             </div>
             <div class="grid grid-cols-3 gap-3 text-[11px] font-tabular" aria-label="评分因子" data-dca-valuation data-dca-context>
               <div class="flex flex-col gap-0.5 min-w-0">
@@ -1365,9 +1360,8 @@
           const emotion = sentiment?.score;
           const yieldValue = treasury?.yield;
           const base = {
-            score: null, title: loading ? '正在读取数据' : '数据不足', tier: '等待数据', detail: '',
+            score: null, title: loading ? '正在读取数据' : '数据不足', tier: '等待数据',
             badgeClass: 'bg-slate-200/70 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
-            panelClass: 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
           };
           if (!data?.valid || !Number.isFinite(percentile) || percentile < 0 || percentile > 100 ||
               !sentiment?.valid || !Number.isFinite(emotion) || emotion < 0 || emotion > 100 ||
@@ -1376,19 +1370,16 @@
           const yieldScore = Math.min(100, Math.max(0, (yieldValue - 2) / 4 * 100));
           const score = Number((percentile * 0.60 + emotion * 0.25 + yieldScore * 0.15).toFixed(1));
           if (score < 30) return {
-            score, title: '可以考虑买入', tier: '可以考虑买入', detail: '',
+            score, title: '可以考虑买入', tier: '绿灯', lightClass: 'bg-emerald-500',
             badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-            panelClass: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
           };
           if (score <= 70) return {
-            score, title: '谨慎买入', tier: '谨慎买入', detail: '',
-            badgeClass: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300',
-            panelClass: 'border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200'
+            score, title: '谨慎买入', tier: '黄灯', lightClass: 'bg-yellow-400',
+            badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
           };
           return {
-            score, title: '放缓或暂停买入', tier: '放缓或暂停买入', detail: '已有持仓可考虑适当止盈',
-            badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
-            panelClass: 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'
+            score, title: '放缓或暂停买入', tier: '红灯', lightClass: 'bg-rose-500',
+            badgeClass: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300',
           };
         };
         const dcaGuidance = computed(() => getDcaGuidance(
@@ -1413,7 +1404,6 @@
           return {
             sentimentValid, sentiment: sentimentValid ? `${sentimentLabel} ${Math.round(score)}` : '--',
             yieldValid, yieldValue,
-            summary: `情绪${sentimentLabel}`
           };
         };
         const dcaContext = computed(() => getDcaContext(fearGreed.value, macro.value?.us_treasuries));
