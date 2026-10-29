@@ -52,8 +52,8 @@
       box-shadow: 0 1px 2px rgb(15 23 42 / .03);
     }
     .dark .fear-greed-card {
-      border-color: rgb(30 41 59 / .8);
-      background: rgb(30 41 59 / .4);
+      border-color: #46515b;
+      background: rgb(52 61 69 / .4);
     }
     .fear-greed-summary {
       display: flex;
@@ -67,7 +67,7 @@
       font-weight: 750;
       letter-spacing: .06em;
     }
-    .dark .fear-greed-eyebrow { color: rgb(148 163 184); }
+    .dark .fear-greed-eyebrow { color: #94a1ac; }
     .fear-greed-score-line {
       position: relative;
       display: flex;
@@ -132,9 +132,9 @@
     }
     .dark .fear-greed-rating-tooltip,
     .dark .fear-greed-floating-tooltip {
-      border-color: rgb(51 65 85);
-      background: rgb(30 41 59);
-      color: rgb(226 232 240);
+      border-color: #46515b;
+      background: #2d343b;
+      color: #d8dfe4;
     }
     .fear-greed-rating-tooltip strong {
       display: block;
@@ -157,7 +157,7 @@
       font-size: 10px;
       line-height: 1.4;
     }
-    .dark .fear-greed-updated { color: rgb(148 163 184); }
+    .dark .fear-greed-updated { color: #b2bdc5; }
     .fear-greed-updated-item {
       display: flex;
       align-items: baseline;
@@ -170,7 +170,7 @@
       font-size: 9px;
       font-weight: 650;
     }
-    .dark .fear-greed-updated-label { color: rgb(100 116 139); }
+    .dark .fear-greed-updated-label { color: #94a1ac; }
     .fear-greed-updated-value {
       font-variant-numeric: tabular-nums;
       font-weight: 600;
@@ -211,9 +211,9 @@
       pointer-events: none;
     }
     .dark .fear-greed-temperature-marker {
-      border-color: rgb(15 23 42);
-      background: white;
-      box-shadow: 0 0 0 1px white;
+      border-color: #242a30;
+      background: #d8dfe4;
+      box-shadow: 0 0 0 1px #242a30;
     }
     .fear-greed-floating-tooltip {
       position: absolute;
@@ -256,7 +256,7 @@
       color: rgb(100 116 139);
       font-size: 9px;
     }
-    .dark .fear-greed-temperature-labels { color: rgb(100 116 139); }
+    .dark .fear-greed-temperature-labels { color: #94a1ac; }
     .fear-greed-chart-panel {
       position: relative;
       display: grid;
@@ -277,7 +277,7 @@
       font-size: 11px;
       font-weight: 800;
     }
-    .dark .fear-greed-chart-title { color: rgb(241 245 249); }
+    .dark .fear-greed-chart-title { color: #d8dfe4; }
     .fear-greed-chart-caption {
       color: rgb(100 116 139);
       font-size: 9px;
@@ -309,10 +309,153 @@
     @media (max-width: 479px) {
       .fear-greed-card { grid-template-columns: minmax(0, 1fr); gap: 12px; }
       .fear-greed-chart-panel { border-top: 1px solid #e2e8f0; padding-top: 10px; }
-      .dark .fear-greed-chart-panel { border-color: #334155; }
+      .dark .fear-greed-chart-panel { border-color: #46515b; }
       .fear-greed-summary { gap: 8px; }
       .fear-greed-canvas-wrap { height: 130px; }
     }
+
+    /* ========================================================
+       深色主题温和暖灰蓝语义映射系统 (仅作用于 .dark，避免影响浅色)
+       ======================================================== */
+    html.dark {
+      --night-bg: #242a30;        /* 页底 */
+      --night-card: #2d343b;      /* 主卡 */
+      --night-surface: #343d45;   /* 次级表面 */
+      --night-border: #46515b;    /* 边界 */
+      --night-text: #d8dfe4;      /* 主文字 */
+      --night-muted: #b2bdc5;     /* 次文字 */
+      --night-faint: #94a1ac;     /* 弱提示 */
+    }
+    html.dark .fear-greed-chart-caption { color: var(--night-faint); }
+    html.dark .text-slate-500:not([class*="dark:text-"]) {
+      color: var(--night-faint);
+    }
+    /* 深色模式保留风险色，避免整块文字闪烁时对比度下降。 */
+    html.dark .animate-pulse { animation: none; }
+
+    /* 页面基底与主体文字 */
+    html.dark body,
+    html.dark .dark\:bg-slate-950 {
+      background-color: var(--night-bg) !important;
+    }
+    html.dark body {
+      color: var(--night-text) !important;
+    }
+
+    /* 主卡片层级 (header、大卡片、表格壳层、模态框等) */
+    html.dark .dark\:bg-slate-900 {
+      background-color: var(--night-card) !important;
+    }
+    html.dark .dark\:bg-slate-900\/70 {
+      background-color: rgb(45 52 59 / 0.7) !important;
+    }
+    html.dark .dark\:bg-slate-900\/50 {
+      background-color: rgb(45 52 59 / 0.5) !important;
+    }
+
+    /* 次级表面层级 (折叠详情、卡片内部条目、徽章、输入控件底色) */
+    html.dark .dark\:bg-slate-850,
+    html.dark .dark\:bg-slate-800,
+    html.dark .dark\:bg-slate-700 {
+      background-color: var(--night-surface) !important;
+    }
+    html.dark .dark\:bg-slate-950\/70 {
+      background-color: rgb(52 61 69 / 0.7) !important;
+    }
+    html.dark .dark\:bg-slate-800\/40 {
+      background-color: rgb(52 61 69 / 0.4) !important;
+    }
+    html.dark .dark\:bg-slate-800\/30 {
+      background-color: rgb(52 61 69 / 0.3) !important;
+    }
+    html.dark .dark\:bg-slate-700\/80 {
+      background-color: rgb(52 61 69 / 0.8) !important;
+    }
+
+    /* 边框与分割线体系 */
+    html.dark .dark\:border-slate-800,
+    html.dark .dark\:border-slate-700 {
+      border-color: var(--night-border) !important;
+    }
+    html.dark .dark\:border-slate-800\/80,
+    html.dark .dark\:border-slate-800\/70,
+    html.dark .dark\:border-slate-800\/60,
+    html.dark .dark\:border-slate-800\/50,
+    html.dark .dark\:border-slate-700\/80 {
+      border-color: rgb(70 81 91 / 0.8) !important;
+    }
+    html.dark .dark\:divide-slate-800\/50 > :not([hidden]) ~ :not([hidden]),
+    html.dark .dark\:divide-slate-800\/60 > :not([hidden]) ~ :not([hidden]) {
+      border-color: rgb(70 81 91 / 0.5) !important;
+    }
+
+    /* 文字层次体系：主文字、次文字、弱提示 */
+    html.dark .dark\:text-white,
+    html.dark .dark\:text-slate-100,
+    html.dark .dark\:text-slate-200 {
+      color: var(--night-text) !important;
+    }
+    html.dark .dark\:text-slate-300,
+    html.dark .dark\:text-slate-400 {
+      color: var(--night-muted) !important;
+    }
+    html.dark .dark\:text-slate-500,
+    html.dark .dark\:text-slate-600,
+    html.dark .dark\:text-slate-700 {
+      color: var(--night-faint) !important;
+    }
+
+    /* Hover 与状态交互 */
+    html.dark .dark\:hover\:bg-slate-800:hover,
+    html.dark .dark\:hover\:bg-slate-850:hover,
+    html.dark .dark\:hover\:bg-slate-700:hover {
+      background-color: #3b464f !important;
+    }
+    html.dark .dark\:hover\:bg-slate-800\/40:hover {
+      background-color: rgb(59 70 79 / 0.5) !important;
+    }
+    html.dark .dark\:hover\:text-white:hover,
+    html.dark .dark\:hover\:text-slate-200:hover {
+      color: var(--night-text) !important;
+    }
+    html.dark .dark\:disabled\:text-slate-600:disabled {
+      color: var(--night-faint) !important;
+    }
+    html.dark .dark\:ring-slate-900 {
+      --tw-ring-color: var(--night-card) !important;
+    }
+
+    /* 输入框与选择框控件防近黑/防刺眼 */
+    html.dark input,
+    html.dark select {
+      background-color: var(--night-surface) !important;
+      border-color: var(--night-border) !important;
+      color: var(--night-text) !important;
+    }
+    html.dark input::placeholder {
+      color: var(--night-faint) !important;
+    }
+
+    /* 模态框遮罩暖灰蓝柔和化 (覆盖原生 bg-slate-900/60) */
+    html.dark .fixed.bg-slate-900\/60 {
+      background-color: rgb(36 42 48 / 0.75) !important;
+    }
+    /* 模态框深色关闭按钮防止纯白刺眼 (原 dark:bg-white dark:text-slate-900) */
+    html.dark button.dark\:bg-white {
+      background-color: var(--night-surface) !important;
+      color: var(--night-text) !important;
+      border: 1px solid var(--night-border) !important;
+    }
+    html.dark button.dark\:bg-white:hover {
+      background-color: #3b464f !important;
+    }
+
+    /* 深色状态与提示色微徽章，降低饱和度且不落回近黑 */
+    html.dark .dark\:bg-emerald-950 { background-color: rgb(16 185 129 / 0.18) !important; }
+    html.dark .dark\:bg-amber-950 { background-color: rgb(245 158 11 / 0.18) !important; }
+    html.dark .dark\:bg-rose-950 { background-color: rgb(244 63 94 / 0.18) !important; }
+    html.dark .dark\:bg-indigo-950 { background-color: rgb(99 102 241 / 0.18) !important; }
+    html.dark .dark\:bg-cyan-950 { background-color: rgb(6 182 212 / 0.18) !important; }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
@@ -1369,7 +1512,7 @@
         });
 
         // 系统版本号
-        const appVersion = ref('v1.7.2');
+        const appVersion = ref('v1.7.3');
 
         // 独立市场情绪状态：与 ETF 行情、排序和归档完全隔离。
         const fearGreed = ref(null);
@@ -1627,9 +1770,9 @@
           ctx.clearRect(0, 0, rect.width, rect.height);
 
           const dark = document.documentElement.classList.contains('dark');
-          const gridColor = dark ? '#26364d' : '#dbe4ef';
-          const textColor = dark ? '#64748b' : '#64748b';
-          const surfaceColor = dark ? '#0f172a' : '#ffffff';
+          const gridColor = dark ? '#46515b' : '#dbe4ef';
+          const textColor = dark ? '#94a1ac' : '#64748b';
+          const surfaceColor = dark ? '#2d343b' : '#ffffff';
           const pad = { top: 9, right: 8, bottom: 21, left: 28 };
           const width = Math.max(1, rect.width - pad.left - pad.right);
           const height = Math.max(1, rect.height - pad.top - pad.bottom);
