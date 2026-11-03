@@ -21,7 +21,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 
 # 基础配置
-APP_VERSION = "v1.7.3"
+APP_VERSION = "v1.8.0"
 BIND_ADDRESS = os.environ.get("BIND_ADDRESS", "127.0.0.1")
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
@@ -39,6 +39,14 @@ SYMBOLS_CACHE_FILE = os.path.join(DATA_DIR, "nasdaq_symbols_cache.json")
 HISTORY_FILE = os.path.join(DATA_DIR, "history_daily.json")
 FEAR_GREED_CACHE_FILE = os.path.join(DATA_DIR, "fear_greed_cache.json")
 VALUATION_CACHE_FILE = os.path.join(DATA_DIR, "nasdaq_valuation_cache.json")
+DCA_STATE_FILE = os.path.join(DATA_DIR, "nasdaq_dca_state.json")
+DCA_TIMEZONE = timezone(timedelta(hours=8))
+DCA_ACTIONS = {
+    "increase": {"title": "加大投入", "amount_multiplier": 1.5},
+    "normal": {"title": "正常投入", "amount_multiplier": 1.0},
+    "stop": {"title": "停止投入", "amount_multiplier": 0.0},
+}
+DCA_CONFIRM_DAYS = 3
 
 
 def ensure_data_storage():
@@ -144,6 +152,10 @@ fear_greed_lock = threading.Lock()
 valuation_cache = {"initialized": False, "payload": None,
                    "last_success_at": "", "last_success_epoch": 0.0, "last_attempt_epoch": 0.0}
 valuation_lock = threading.Lock()
+
+# 定投建议单独持久化，不使用ETF收盘档案或浏览器存储累计确认次数。
+dca_lock = threading.Lock()
+dca_state = None
 
 # 标的池内存缓存
 symbols_registry = {
@@ -547,6 +559,173 @@ def get_valuation_data(now=None):
             "status": "stale" if stale else "fresh", "last_success_at": valuation_cache["last_success_at"]}}
 
 
+def _empty_dca_state():
+    return {"schema_version": 1, "action": "normal", "confirmed": False,
+            "candidate_action": "", "candidate_count": 0, "last_evaluation_date": "",
+            "last_valid_at": "", "snapshot": None}
+
+
+def _load_dca_state(today):
+    try:
+        with open(DCA_STATE_FILE, encoding="utf-8") as source:
+            saved = json.load(source)
+        if (saved.get("schema_version") != 1 or saved.get("action") not in DCA_ACTIONS or
+                type(saved.get("confirmed")) is not bool or
+                saved.get("candidate_action") not in ("", *DCA_ACTIONS) or
+                type(saved.get("candidate_count")) is not int or
+                not 0 <= saved["candidate_count"] < DCA_CONFIRM_DAYS):
+            raise ValueError("invalid DCA state")
+        if bool(saved["candidate_action"]) != bool(saved["candidate_count"]):
+            raise ValueError("invalid DCA confirmation count")
+        for key in ("last_evaluation_date", "last_valid_at"):
+            if not isinstance(saved.get(key), str):
+                raise ValueError("invalid DCA date")
+            if saved[key] and datetime.fromisoformat(saved[key]).date() > today:
+                raise ValueError("DCA state is ahead of current date")
+        snapshot = saved.get("snapshot")
+        if saved["last_valid_at"]:
+            if not isinstance(snapshot, dict) or not saved["last_evaluation_date"]:
+                raise ValueError("missing DCA snapshot")
+            for key in ("pe_percentile", "emotion"):
+                value = snapshot.get(key)
+                if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 100:
+                    raise ValueError("invalid DCA snapshot")
+        elif saved["confirmed"] or saved["candidate_count"] or saved["action"] != "normal":
+            raise ValueError("missing DCA evaluation")
+        return {key: saved[key] for key in _empty_dca_state()}
+    except FileNotFoundError:
+        pass
+    except Exception as exc:
+        print(f"[Warning] 忽略定投建议状态: {exc}", file=sys.stderr)
+    return _empty_dca_state()
+
+
+def _save_dca_state(state):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    temp_file = DCA_STATE_FILE + ".tmp"
+    try:
+        with open(temp_file, "w", encoding="utf-8") as target:
+            json.dump(state, target, ensure_ascii=False, allow_nan=False, indent=2)
+            target.flush()
+            os.fsync(target.fileno())
+        os.replace(temp_file, DCA_STATE_FILE)
+    finally:
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+
+
+def _dca_inputs_valid(valuation, sentiment, now):
+    if not valuation.get("valid") or not sentiment.get("valid"):
+        return False
+    for value in (valuation.get("pe_percentile"), sentiment.get("score")):
+        if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 100:
+            return False
+    try:
+        valuation_date = datetime.strptime(valuation["data_date"], "%Y-%m-%d").date()
+        sentiment_time = datetime.fromisoformat(sentiment["as_of"].replace("Z", "+00:00"))
+        if sentiment_time.tzinfo is None:
+            sentiment_time = sentiment_time.replace(tzinfo=timezone.utc)
+        return (0 <= (now.date() - valuation_date).days <= 7 and
+                0 <= (now - sentiment_time).total_seconds() <= 72 * 3600)
+    except (KeyError, ValueError, TypeError, AttributeError):
+        return False
+
+
+def _dca_target_action(action, percentile, emotion):
+    if action == "increase":
+        return "normal" if percentile > 40 or emotion > 45 else "increase"
+    if action == "stop":
+        return "normal" if percentile < 80 or emotion < 65 else "stop"
+    if percentile >= 85 and emotion >= 75:
+        return "stop"
+    if (percentile <= 30 and emotion <= 25) or (percentile <= 15 and emotion <= 45):
+        return "increase"
+    return "normal"
+
+
+def _dca_reason(action, snapshot):
+    if not snapshot:
+        return "按原定计划执行，等待每日信号确认。"
+    percentile, emotion = snapshot["pe_percentile"], snapshot["emotion"]
+    if action == "increase":
+        return "估值与情绪支持适度加码；仅使用预先准备的备用预算，分批投入。"
+    if action == "stop":
+        return "过热信号已确认，暂缓本期新增资金，等待退出条件确认。"
+    if percentile >= 85 and emotion <= 25:
+        return "估值偏高、情绪低迷；坚持原计划，暂不加码。"
+    if percentile > 30 and emotion <= 25:
+        return "市场情绪恐惧，但估值尚不便宜；坚持定投，暂不加码。"
+    if emotion >= 75:
+        return "市场情绪偏热；按原计划投入，避免追涨加码。"
+    return "尚未形成需要调整投入的确认信号，按原计划执行。"
+
+
+def get_nasdaq_dca_data(now=None):
+    """工作日北京时间16:00后每日一次评估，刷新与重启均不重复累计。"""
+    global dca_state
+    epoch = time.time() if now is None else float(now)
+    local_now = datetime.fromtimestamp(epoch, DCA_TIMEZONE)
+    today = local_now.date()
+    _, valuation_result = get_valuation_data(epoch)
+    _, sentiment_result = get_fear_greed_data(epoch)
+    valuation = valuation_result.get("data") or {}
+    sentiment = sentiment_result.get("data") or {}
+    valid = _dca_inputs_valid(valuation, sentiment, local_now)
+    storage_error = False
+    with dca_lock:
+        if dca_state is None:
+            dca_state = _load_dca_state(today)
+        previous_date = dca_state["last_evaluation_date"]
+        if local_now.weekday() < 5 and local_now.hour >= 16 and previous_date < today.isoformat():
+            updated = dict(dca_state)
+            expected_previous = today - timedelta(days=1)
+            while expected_previous.weekday() >= 5:
+                expected_previous -= timedelta(days=1)
+            # 离线漏评或无效数据中断连续确认，不补写历史评估。
+            if previous_date != expected_previous.isoformat() or not valid:
+                updated.update(candidate_action="", candidate_count=0)
+            updated["last_evaluation_date"] = today.isoformat()
+            if valid:
+                percentile, emotion = valuation["pe_percentile"], sentiment["score"]
+                target = _dca_target_action(updated["action"], percentile, emotion)
+                if target == updated["action"] and updated["confirmed"]:
+                    updated.update(candidate_action="", candidate_count=0)
+                else:
+                    count = updated["candidate_count"] + 1 if updated["candidate_action"] == target else 1
+                    if count >= DCA_CONFIRM_DAYS:
+                        updated.update(action=target, confirmed=True, candidate_action="", candidate_count=0)
+                    else:
+                        updated.update(candidate_action=target, candidate_count=count)
+                updated["last_valid_at"] = local_now.isoformat(timespec="seconds")
+                updated["snapshot"] = {"pe_percentile": percentile, "emotion": emotion,
+                                       "valuation_date": valuation["data_date"], "sentiment_as_of": sentiment["as_of"]}
+            try:
+                _save_dca_state(updated)
+                dca_state = updated
+            except Exception as exc:
+                storage_error = True
+                print(f"[Warning] 保存定投建议失败，本次不推进状态: {exc}", file=sys.stderr)
+        state = dict(dca_state)
+    return {"code": 200, "data": {
+        **state, **DCA_ACTIONS[state["action"]], "valid": valid and not storage_error,
+        "reason": _dca_reason(state["action"], state["snapshot"]),
+        "consider_take_profit": state["confirmed"] and state["action"] == "stop",
+        "evaluation_schedule": "工作日16:00（北京时间）", "confirmation_days": DCA_CONFIRM_DAYS,
+        "unavailable_reason": "建议暂存失败，本次不更新" if storage_error else "数据不足或过期，暂不更新建议",
+    }}
+
+
+def dca_evaluator_daemon():
+    while True:
+        try:
+            now = datetime.now(DCA_TIMEZONE)
+            if now.weekday() < 5 and now.hour >= 16:
+                get_nasdaq_dca_data()
+        except Exception as exc:
+            print(f"[DCA Daemon Error] {exc}", file=sys.stderr)
+        time.sleep(60)
+
+
 def discover_etfs_online(force=False):
     """
     标的池管理状态机：
@@ -691,6 +870,28 @@ def discover_etfs_online(force=False):
     return symbols_registry
 
 
+def parse_crude_oil_quote(fields):
+    """原油期货以昨结算价为涨跌基准，保留上游报价日期与时间。"""
+    empty = {"price": None, "settle": None, "change": None, "change_pct": None,
+             "valid": False, "date": "", "time": "--"}
+    if len(fields) < 14:
+        return empty
+    try:
+        price = float(fields[0])
+        settle = float(fields[7])
+        if not math.isfinite(price) or not math.isfinite(settle) or settle <= 0:
+            return empty
+        change = price - settle
+        pct = change / settle * 100.0
+        if not math.isfinite(change) or not math.isfinite(pct):
+            return empty
+        return {"price": round(price, 2), "settle": round(settle, 2),
+                "change": round(change, 2), "change_pct": round(pct, 2),
+                "valid": True, "date": fields[12], "time": fields[6] or "--"}
+    except (ValueError, TypeError, OverflowError):
+        return empty
+
+
 def get_market_data(force=False):
     """获取并综合计算所有宏观指数、期货及各 ETF 实时溢价率"""
     now = time.time()
@@ -710,7 +911,7 @@ def get_market_data(force=False):
 
         all_symbols = [item["symbol"] for item in active_broad_etfs + active_sector_etfs + active_sp500_etfs]
         tc_url = "http://qt.gtimg.cn/q=" + ",".join(all_symbols)
-        sina_url = "http://hq.sinajs.cn/list=hf_NQ,hf_ES,fx_susdcnh,gb_$ndx,gb_$spx,globalbd_us2yt,globalbd_us5yt,globalbd_us10yt,globalbd_us30yt"
+        sina_url = "http://hq.sinajs.cn/list=hf_NQ,hf_ES,hf_CL,hf_OIL,fx_susdcnh,gb_$ndx,gb_$spx,globalbd_us2yt,globalbd_us5yt,globalbd_us10yt,globalbd_us30yt"
 
         # 抓取腾讯 A 股 ETF 行情与新浪外盘期货/汇率
         tc_raw = fetch_url(tc_url)
@@ -719,6 +920,7 @@ def get_market_data(force=False):
         # --- 解析宏观数据 ---
         cme_nq = {"price": 0.0, "settle": 0.0, "change": 0.0, "change_pct": 0.0, "valid": False, "time": "--"}
         cme_es = {"price": 0.0, "settle": 0.0, "change": 0.0, "change_pct": 0.0, "valid": False, "time": "--"}
+        crude_oil = {"wti": parse_crude_oil_quote([]), "brent": parse_crude_oil_quote([])}
         usd_cnh = {"rate": 0.0, "close": 0.0, "change": 0.0, "change_pct": 0.0, "valid": False, "time": "--"}
         ndx_index = {"price": 0.0, "change_pct": 0.0, "time": "--"}
         spx_index = {"price": 0.0, "change_pct": 0.0, "time": "--"}
@@ -782,6 +984,12 @@ def get_market_data(force=False):
                             }
                 except Exception as e:
                     print(f"[Error] Parsing NQ: {e}", file=sys.stderr)
+
+            elif "hf_CL" in var_name:
+                crude_oil["wti"] = parse_crude_oil_quote(fields)
+
+            elif "hf_OIL" in var_name:
+                crude_oil["brent"] = parse_crude_oil_quote(fields)
 
             elif "fx_susdcnh" in var_name and len(fields) > 3:
                 try:
@@ -1114,6 +1322,7 @@ def get_market_data(force=False):
             "macro": {
                 "cme_nq": cme_nq,
                 "cme_es": cme_es,
+                "crude_oil": crude_oil,
                 "usd_cnh": usd_cnh,
                 "ndx_index": ndx_index,
                 "spx_index": spx_index,
@@ -1361,6 +1570,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(content)
             return
 
+        # 定投计划独立于实时行情，读取不会增加当日确认次数。
+        if req_path in ["/api/nasdaq-dca", "/api/nasdaq-dca/"]:
+            data = get_nasdaq_dca_data()
+            content = json.dumps(data, ensure_ascii=False, allow_nan=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
         # 路由 2: 手动强制在线重新拉取标的池
         if req_path in ["/api/refresh-symbols", "/api/refresh-symbols/"]:
             with market_data_lock:
@@ -1536,6 +1757,7 @@ def run_server():
     print("🔍 正在在线检测并同步 ETF 标的池...")
     discover_etfs_online()
     start_daily_collector_daemon()
+    threading.Thread(target=dca_evaluator_daemon, daemon=True, name="DcaEvaluatorDaemon").start()
     server_address = (BIND_ADDRESS, PORT)
     httpd = ThreadedHTTPServer(server_address, DashboardHandler)
     print("=" * 60)

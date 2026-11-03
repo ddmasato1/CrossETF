@@ -7,3 +7,9 @@ __pycache__
 .vscode
 .idea
 *.log
+AGENT.md
+scratch/
+data/*_cache.json
+data/nasdaq_dca_state.json
+data/history_daily.json
+data/*.tmp

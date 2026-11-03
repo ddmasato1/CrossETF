@@ -442,22 +442,24 @@ def run_tests():
     print("✅ 测试 11 通过: 美债收益率方案A (2Y/10Y/利差倒挂) 解析、熔断与前端展示验证通过")
 
     # -------------------------------------------------------------
-    # 测试 12: 三因子三档建议与独立估值缓存，防止旧倍数回归
+    # 测试 12: 每日定投建议展示与独立估值缓存，防止旧加权评分回归
     # -------------------------------------------------------------
     assert not hasattr(server, "calculate_nasdaq_dca"), "旧加权引擎应删除，避免被误用"
-    assert "getDcaGuidance" in index_html and "dcaGuidance.title" in index_html
+    assert "/api/nasdaq-dca" in index_html and "dcaGuidance.title" in index_html
+    assert "getDcaGuidance" not in index_html, "前端不再自行生成加权评分"
     assert "估值暂不可用" in index_html, "没有估值数据时必须明确说明"
     card = index_html.split('data-dca-card>', 1)[1].split('</section>', 1)[0]
-    assert "data-dca-guidance" not in card and "dcaGuidance.title" not in card, "详情不重复显示买入建议"
-    assert "评分因子" in card
+    assert "data-dca-guidance" in card and "dcaGuidance.reason" in card, "详情应解释建议及确认进度"
+    assert "决策因子" in card
     for retired in ("const nasdaqDca", "getDcaBadgeClass", "综合风险分", "停投止盈", "翻倍定投", "中性代入"):
         assert retired not in index_html, f"旧评分遗留：{retired}"
     assert "as_of" in index_html and "last_success_at" in index_html, "情绪双时间应保留"
     assert "责任" not in card and "仅供观察" not in card
     assert "pe_percentile" in card and "PE-TTM" not in card and "10Y−2Y利差" not in card
     assert 'data-dca-context' in card and 'dcaContext.summary' not in card
-    assert 'PE分位60%' in card and '情绪25%' in card and '美债15%' in card
-    assert 'dcaGuidance.score' in card, "应展示综合参考分"
+    assert 'PE分位60%' not in card and '美债15%' not in card
+    assert 'dcaGuidance.score' not in card and 'dcaGuidance.amount' in card, "应展示投入档位，不能伪装为风险分数"
+    assert '连续3个评估日' in card and '考虑止盈' in card
     market_source = inspect.getsource(server.get_market_data)
     assert 'qqq_52w' not in market_source and 'usQQQ' not in market_source, "52周字段及QQQ额外请求必须移除"
     assert 'qqq_52w' not in index_html and 'pos_52w' not in index_html
@@ -535,7 +537,7 @@ def run_tests():
         server.valuation_cache.update(original_state)
     assert "get_valuation_data" not in inspect.getsource(server.get_market_data)
     assert "get_valuation_data" not in inspect.getsource(server.record_daily_history)
-    print("✅ 测试 12 通过: 三因子建议、估值校验/持久化/冷却/并发与行情隔离验证通过")
+    print("✅ 测试 12 通过: 每日建议展示、估值校验/持久化/冷却/并发与行情隔离验证通过")
 
     print("=" * 60)
     print("🎉 全部 12 项核心业务、情绪缓存与响应式结构测试 100% 验证通过！")
