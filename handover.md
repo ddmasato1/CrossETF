@@ -1,6 +1,6 @@
 # CrossETF 项目交接
 
-当前版本为**v1.9.0**，发布分支`main`，版本入口见[Git标签](https://github.com/ddmasato1/CrossETF/tree/v1.9.0)。本版新增A股核心ETF分钟成交观察、排行及三年日成交额与上证指数走势，保留跨境ETF溢价、每日定投行动、原油行情和暖灰蓝主题。本文保留当前运行与维护所需信息；版本历史见[CHANGELOG](CHANGELOG.md)。
+当前版本为**v1.9.1**，发布分支`main`，版本入口见[Git标签](https://github.com/ddmasato1/CrossETF/tree/v1.9.1)。本次精简README并统一更新记录归档，前后端版本同步；功能沿用v1.9.0，包括跨境ETF溢价、每日定投参考、宏观行情和A股成交观察。本文保留当前运行与维护所需信息；版本历史见[CHANGELOG](CHANGELOG.md)。
 
 ## 项目与架构
 
