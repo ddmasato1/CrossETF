@@ -13,3 +13,5 @@ data/*_cache.json
 data/nasdaq_dca_state.json
 data/history_daily.json
 data/*.tmp
+data/a_share_etf_volume/
+data/a_share_etf_daily/

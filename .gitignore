@@ -37,3 +37,9 @@ data/nasdaq_valuation_cache.json.tmp
 # DCA daily evaluation and confirmation state
 data/nasdaq_dca_state.json
 data/nasdaq_dca_state.json.tmp
+
+# A-share ETF minute volume data and runtime caches
+data/a_share_etf_volume/
+
+# A-share ETF daily turnover archive (kept independently of minute retention)
+data/a_share_etf_daily/

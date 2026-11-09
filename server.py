@@ -20,8 +20,22 @@ import shutil
 import threading
 from datetime import datetime, timedelta, timezone
 
+from a_share_volume import (
+    get_a_share_volume_payload,
+    get_available_dates as get_a_share_available_dates,
+    start_a_share_volume_daemon,
+    ensure_volume_storage,
+    configure as configure_a_share_volume
+)
+
+from a_share_daily import (
+    configure as configure_a_share_daily,
+    get_daily_history_payload,
+    start_a_share_daily_daemon,
+)
+
 # 基础配置
-APP_VERSION = "v1.8.0"
+APP_VERSION = "v1.9.0"
 BIND_ADDRESS = os.environ.get("BIND_ADDRESS", "127.0.0.1")
 PORT = int(os.environ.get("PORT", 8000))
 CACHE_TTL = 3  # 行情缓存时间（秒），防止高频刷新打爆上游接口
@@ -35,6 +49,8 @@ VALUATION_CACHE_TTL = 6 * 3600
 # 缓存与数据文件路径
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.abspath(os.environ.get("DATA_DIR", os.path.join(CURRENT_DIR, "data")))
+configure_a_share_volume(DATA_DIR)
+configure_a_share_daily(DATA_DIR)
 SYMBOLS_CACHE_FILE = os.path.join(DATA_DIR, "nasdaq_symbols_cache.json")
 HISTORY_FILE = os.path.join(DATA_DIR, "history_daily.json")
 FEAR_GREED_CACHE_FILE = os.path.join(DATA_DIR, "fear_greed_cache.json")
@@ -1671,6 +1687,53 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_error(404, "History file not found")
                 return
 
+        # 路由 3.2: A股重点宽基ETF一分钟成交额观察接口
+        if req_path in ["/api/a-share-volume", "/api/a-share-volume/"]:
+            query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+            target_date = query.get("date", [None])[0]
+            data = get_a_share_volume_payload(target_date=target_date)
+            status_code = data.get("code", 200) if isinstance(data, dict) else 200
+            content = json.dumps(data, ensure_ascii=False, allow_nan=False).encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
+        # 固定核心ETF池近三年日成交额；只读取本地档案，不在HTTP请求内补采。
+        if req_path in ["/api/a-share-volume/daily", "/api/a-share-volume/daily/"]:
+            query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+            data = get_daily_history_payload(
+                start=query.get("start", [None])[0],
+                end=query.get("end", [None])[0],
+            )
+            content = json.dumps(data, ensure_ascii=False, allow_nan=False).encode("utf-8")
+            self.send_response(data.get("code", 200))
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
+        # 路由 3.3: A股重点宽基ETF可用交易日期列表
+        if req_path in ["/api/a-share-volume/dates", "/api/a-share-volume/dates/"]:
+            dates = get_a_share_available_dates()
+            res = {"code": 200, "dates": dates}
+            content = json.dumps(res, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
         # 路由 4: 健康检查
         if req_path == "/health":
             body = b'{"status": "ok"}'
@@ -1681,7 +1744,23 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
 
-        # 路由 4: 静态页面（根路径或 index.html）
+        # 路由 4.1: A股成交观察独立页面
+        volume_html_file = os.path.join(current_dir, "static", "a-share-volume.html")
+        if req_path in ["/volume", "/volume/", "/a-share-volume.html"]:
+            if os.path.exists(volume_html_file):
+                with open(volume_html_file, "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
+            else:
+                self.send_error(404, "a-share-volume.html not found")
+                return
+
+        # 路由 4.2: 静态页面（根路径或 index.html）
         html_file = os.path.join(current_dir, "static", "index.html")
         if req_path in ["/", "/index.html"]:
             if os.path.exists(html_file):
@@ -1754,16 +1833,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
 def run_server():
     ensure_data_storage()
+    ensure_volume_storage()
     print("🔍 正在在线检测并同步 ETF 标的池...")
     discover_etfs_online()
     start_daily_collector_daemon()
     threading.Thread(target=dca_evaluator_daemon, daemon=True, name="DcaEvaluatorDaemon").start()
+    start_a_share_volume_daemon()
+    start_a_share_daily_daemon()
     server_address = (BIND_ADDRESS, PORT)
     httpd = ThreadedHTTPServer(server_address, DashboardHandler)
     print("=" * 60)
     print(f"🚀 CrossETF 跨境ETF实时溢价追踪服务已启动！[{APP_VERSION}]")
     print(f"👉 本地访问地址: http://127.0.0.1:{PORT}")
+    print(f"👉 A股成交观察页: http://127.0.0.1:{PORT}/volume")
     print(f"👉 实时行情 API: http://127.0.0.1:{PORT}/api/quotes")
+    print(f"👉 A股成交 API: http://127.0.0.1:{PORT}/api/a-share-volume")
     print(f"👉 估值观察 API: http://127.0.0.1:{PORT}/api/nasdaq-valuation")
     print(f"👉 市场情绪 API: http://127.0.0.1:{PORT}/api/fear-greed")
     print(f"👉 历史归档 API: http://127.0.0.1:{PORT}/api/history")

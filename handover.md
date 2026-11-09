@@ -1,13 +1,16 @@
 # CrossETF 项目交接
 
-当前版本为**v1.8.0**，发布目标分支`main`，版本入口见[GitHub Release](https://github.com/ddmasato1/CrossETF/releases/tag/v1.8.0)。本版新增每日定投行动建议、原油行情及紧凑指针布局，保留暖灰蓝主题与ETF年初至今涨幅。本文保留当前运行与维护所需信息；版本历史见[CHANGELOG](CHANGELOG.md)。
+当前版本为**v1.9.0**，发布分支`main`，版本入口见[Git标签](https://github.com/ddmasato1/CrossETF/tree/v1.9.0)。本版新增A股核心ETF分钟成交观察、排行及三年日成交额与上证指数走势，保留跨境ETF溢价、每日定投行动、原油行情和暖灰蓝主题。本文保留当前运行与维护所需信息；版本历史见[CHANGELOG](CHANGELOG.md)。
 
 ## 项目与架构
 
 - 跨境ETF溢价监控、同指数价差示意、独立纳指定投参考及收盘档案。
-- 后端为Python 3.11标准库，前端为Vue 3及Tailwind CDN单页，无pip/npm依赖或数据库。
+- 后端为Python 3.11标准库，首页为Vue 3及Tailwind CDN；独立观察页为Vue 3及本页CSS，无pip/npm依赖或数据库。
 - `server.py`：行情、标的发现、独立情绪与估值接口、收盘采集。
 - `static/index.html`：手机卡片、桌面表格、宏观详情、投入倍数浮层和历史弹窗。
+- `a_share_volume.py`：10只核心ETF和四指数分钟采集、完整性边界、历史基准、排行与日档保留。
+- `a_share_daily.py`：固定起点的日成交额及上证指数收盘，收盘更新、补采、错误恢复与独立长期日档。
+- `static/a-share-volume.html`：独立成交观察页，分钟百分比轴、日线指数点位轴、两套滑轨与共用主题。
 - `data/`：目录挂载持久化；正式档案和运行缓存均不提交Git。
 - `test_review_criteria.py`：12项核心回归；`test_market_concurrency.py`：5项并发检查，均使用模拟上游。
 
@@ -43,6 +46,10 @@
 | /api/nasdaq-dca | 每日定投行动及确认进度；独立持久化、16:00起按工作日每日评估，读取不重复累计 |
 | /api/history | 收盘档案，支持days参数 |
 | /api/refresh-symbols | 管理重扫；公网入口必须阻断，重扫与行情刷新共用锁 |
+| /volume | 独立A股成交观察页，当前桌面优先 |
+| /api/a-share-volume | 分钟成交合计、四指数点位及前收涨跌幅、排行，支持date参数 |
+| /api/a-share-volume/dates | 已保存分钟档案交易日期 |
+| /api/a-share-volume/daily | 每日成交额合计与上证指数收盘，支持start/end闭区间，只读本地档案 |
 | /health | 容器健康检查 |
 
 - `data/history_daily.json`为生产档案；缺失时从受跟踪的`.example`模板初始化。
@@ -51,6 +58,17 @@
 - 估值前端在启动、手动刷新及6小时定时器读取，秒级行情轮询不调用该接口。
 - 数据时间与成功拉取时间不得被页面刷新时间替代。情绪缓存标签按用户要求隐藏，后台状态仍保留。
 - 后台收盘线程工作日15:02～15:30每分钟巡检，强刷行情并按日期幂等落盘；上游故障或服务停机仍可能导致漏采。
+
+## A股成交观察维护（v1.9.0，2026-11-09）
+
+- 固定核心池10只、四指数，名单版本v2.0；不采用早期六组或13只扩展方案。当前设计以[需求文档第16节之后](docs/a-share-etf-volume/requirements-design.md)及[日线方案](docs/a-share-etf-volume/daily-history.md)为准，旧分图和已移除明细仅为演变记录。
+- 分钟采用东方财富trends2原生金额、元；启动最多三轮补最近5日，部分失败继续补采。未结束分钟不得累计，也不能仅因时间过去而将已保存半分钟视为完整。缺任一ETF，合计留空。
+- 分钟指数百分比必须有可靠前收；历史前收不套用响应最新日preClose，缺少前收仍可显示真实点位，但不伪造涨跌幅。
+- `data/a_share_etf_volume/YYYY-MM-DD.json`保留最近60个已保存交易日；旧名单记录保留，当前合计仅计10只。`data/a_share_etf_daily/history.json`长期保存原固定起点，勿交给分钟清理逻辑。
+- 日线16:00前不接纳当天日K；交易日期参考实际指数／ETF记录，无完整交易所日历。指数和成交额分别标缺，首个交易日前不冒充缺测；159952在2023-11-28全天停牌零成交有官方证据。
+- 日线更新失败每5分钟重试；只读HTTP不会触发上游补采。网页暂停自动刷新不停止后台采集；进程停止则停止采集，重启补日线，分钟仅能补源站近5日。
+- 首页和后端版本同步v1.9.0；`Dockerfile`必须复制两个新模块，源文件热挂载不能替代重建镜像。
+- 本次集中回归、浏览器检查及部署记录见[发布验收](docs/a-share-etf-volume/release-v1.9.0.md)。新页移动适配仍不在本轮验收范围；运行数据、AGENT.md、scratch不提交。
 
 ## 界面维护约定
 
@@ -80,10 +98,12 @@ python3 test_market_concurrency.py
 python3 test_ytd_returns.py
 python3 test_crude_oil.py
 python3 test_dca_guidance.py
+python3 -m unittest -v test_a_share_volume test_a_share_daily test_a_share_routes
 git diff --check
 docker compose up -d --build
 ```
 
+- v1.9.0提交前87项回归全部通过：原有33项、分钟33项、日线15项、路由6项；前端语法、1600px观察页交互和首页五种宽度明暗主题检查通过。修正收盘分钟边界、日线指数缺日／旧档案状态／坏档案处理、日期解码及首页窄屏状态栏溢出。本机容器已重建且健康，API与首页版本一致，727天日线和停牌证据保留；详见[发布验收](docs/a-share-etf-volume/release-v1.9.0.md)。
 - v1.7.0发布前12项核心、5项并发及前端语法/15项评分缓存文案检查通过；本地首页、行情版本与估值接口已验证。
 - 开发分支codex/dca-factor-redesign已合并main并推送，标签v1.7.0及GitHub Release已发布。
 - v1.7.1在v1.7.0基础上发布信号灯、详情建议去重及文档修正，前后端版本号同步；旧标签不修改，本次不操作云端部署。
