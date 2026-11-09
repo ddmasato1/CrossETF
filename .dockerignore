@@ -9,6 +9,7 @@ __pycache__
 *.log
 AGENT.md
 scratch/
+tests/
 data/*_cache.json
 data/nasdaq_dca_state.json
 data/history_daily.json

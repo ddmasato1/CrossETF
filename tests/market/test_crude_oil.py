@@ -2,7 +2,7 @@
 import unittest
 from unittest.mock import patch
 
-import server
+from app.market import quotes as server
 
 
 class CrudeOilTests(unittest.TestCase):

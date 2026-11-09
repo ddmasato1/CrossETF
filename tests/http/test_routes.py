@@ -87,6 +87,26 @@ class AShareRoutesTests(unittest.TestCase):
                 self.assertEqual(json.loads(body)["message"], "不可用")
                 self.assertIn("application/json", headers["Content-Type"])
 
+    def test_history_reading_and_response_stay_separate(self):
+        archive = {"2026-11-06": {"date": "2026-11-06", "etfs": []}}
+        with patch.object(server, "read_history", return_value=archive) as history:
+            status, headers, body = self.request("/api/history?days=30")
+        history.assert_called_once_with(30)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {"code": 200, "version": server.APP_VERSION,
+                                         "total_days": 1, "data": archive})
+        self.assertIn("no-store", headers["Cache-Control"])
+
+    def test_history_download_preserves_original_bytes_and_missing_status(self):
+        raw = b'{\n "2026-11-06": {}\n}\n'
+        with patch.object(server, "read_history_bytes", return_value=raw):
+            status, headers, body = self.request("/api/history/download")
+        self.assertEqual((status, body), (200, raw))
+        self.assertIn("attachment", headers["Content-Disposition"])
+        with patch.object(server, "read_history_bytes", side_effect=FileNotFoundError):
+            status, _, _ = self.request("/api/history/download")
+        self.assertEqual(status, 404)
+
     def test_health_and_existing_quotes_are_independent(self):
         with patch.object(server, "get_market_data", return_value={"version": server.APP_VERSION, "etfs": []}):
             status, _, body = self.request("/api/quotes")

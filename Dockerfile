@@ -10,7 +10,8 @@ RUN apk add --no-cache tzdata ca-certificates && \
     echo $TZ > /etc/timezone
 
 # 复制服务端代码、前端资源与初始数据目录（零第三方 pip 依赖）
-COPY server.py a_share_volume.py a_share_daily.py ./
+COPY server.py ./
+COPY app/ ./app/
 COPY static/ ./static/
 COPY data/ ./data/
 

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-a_share_volume.py - A股重点宽基ETF一分钟成交额观察引擎
+A股重点宽基ETF一分钟成交额观察引擎
 核心定位：
 1. 监控 10 只重点宽基 ETF，归入 4 个指数组：
    - 上证综指: 510210, 510760
    - 沪深300: 510300, 510310, 159919, 510330
    - 创业板指: 159915, 159952
    - 科创50: 588000, 588080
-2. 一分钟成交额直接通过东方财富 trends2 接口获取，单位为元（原始字段下标 6）。
+2. 腾讯累计分时按同日相邻分钟差分为成交额（元），东方财富 trends2 按需备用。
 3. 纯 Python 3.11 标准库实现，零第三方依赖。
 4. 按交易日持久化独立存储在 data/a_share_etf_volume/{YYYY-MM-DD}.json，原子安全写入（.tmp + os.replace），写锁串行化。
 5. 保存每 ETF 完整分钟标记及 complete_through 可核实边界：
@@ -37,6 +37,11 @@ import urllib.error
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
+from app.core.config import CURRENT_DIR
+from app.a_share.requests import read_upstream, request_budget
+from app.core.storage import read_json, write_json, remove_json, file_lock
+from app.a_share.sources import fetch_tencent_series, fetch_tencent_snapshot, TENCENT_SOURCE
+
 # 基础配置与时区
 BEIJING_TZ = timezone(timedelta(hours=8))
 MAX_BASELINE_DAYS = 20
@@ -45,13 +50,11 @@ GROUP_VERSION = "v2.0"
 SOURCE_NAME = "eastmoney_trends2"
 
 # 目录配置
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.abspath(os.environ.get("DATA_DIR", os.path.join(CURRENT_DIR, "data")))
 VOLUME_DIR = os.path.join(DATA_DIR, "a_share_etf_volume")
 
 # 线程锁
 volume_lock = threading.Lock()
-file_write_lock = threading.Lock()
 
 
 def get_beijing_now_iso():
@@ -162,6 +165,8 @@ volume_runtime_state = {
     "last_error": "",
     "etf_statuses": {},
     "index_statuses": {},
+    "snapshots": {},
+    "snapshot_error": "",
     "is_syncing": False
 }
 
@@ -202,8 +207,7 @@ def load_day_file(volume_dir, date_str):
     if not os.path.exists(fpath):
         return None
     try:
-        with open(fpath, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        data = read_json(fpath)
         if not isinstance(data, dict):
             return None
         raw_etfs = data.get("etfs")
@@ -234,13 +238,16 @@ def load_day_file(volume_dir, date_str):
                 etf_cp = None
 
             meta = A_SHARE_ETF_METAS.get(code) or LEGACY_ETF_METAS.get(code, {})
+            sources = etf_obj.get("minute_sources")
+            sources = sources if isinstance(sources, dict) else {}
             cleaned_etfs[code] = {
                 "name": str(etf_obj.get("name", meta.get("name", code))),
                 "market": str(etf_obj.get("market", meta.get("market", ""))),
                 "source": str(etf_obj.get("source", SOURCE_NAME)),
                 "last_success_at": str(etf_obj.get("last_success_at", "")),
                 "complete_through": etf_cp,
-                "data": cleaned_data
+                "data": cleaned_data,
+                "minute_sources": {m: str(sources.get(m, etf_obj.get("source", SOURCE_NAME))) for m in cleaned_data}
             }
 
         # 完整性边界按当前监控的 10 只代码集合核验，缺少新增 ETF 的历史日不伪造为齐备
@@ -263,10 +270,13 @@ def load_day_file(volume_dir, date_str):
                     if minute in STANDARD_TRADING_MINUTES_SET and point is not None:
                         points[minute] = point
                 boundary = obj.get("complete_through")
+                sources = obj.get("minute_sources")
+                sources = sources if isinstance(sources, dict) else {}
                 cleaned_indices[group_id] = {
                     "code": meta["code"],
                     "name": meta["name"],
-                    "source": SOURCE_NAME,
+                    "source": str(obj.get("source", SOURCE_NAME)),
+                    "minute_sources": {m: str(sources.get(m, obj.get("source", SOURCE_NAME))) for m in points},
                     "data": points,
                     "pre_close": positive_finite(obj.get("pre_close")),
                     "last_success_at": str(obj.get("last_success_at", "")),
@@ -282,13 +292,8 @@ def load_day_file(volume_dir, date_str):
 def save_day_file(volume_dir, date_str, day_record):
     """原子安全写入指定交易日 JSON 文件，串行化写锁保障"""
     vdir = volume_dir or VOLUME_DIR
-    with file_write_lock:
-        os.makedirs(vdir, exist_ok=True)
-        target_path = os.path.join(vdir, f"{date_str}.json")
-        tmp_path = target_path + ".tmp"
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(day_record, f, ensure_ascii=False, indent=2)
-        os.replace(tmp_path, target_path)
+    target_path = os.path.join(vdir, f"{date_str}.json")
+    write_json(target_path, day_record, ensure_ascii=False, indent=2)
 
 
 def cleanup_old_trading_days(volume_dir=None, keep_days=MAX_RETENTION_DAYS):
@@ -308,13 +313,12 @@ def cleanup_old_trading_days(volume_dir=None, keep_days=MAX_RETENTION_DAYS):
 
     valid_files.sort(key=lambda x: x[0], reverse=True)
     if len(valid_files) > keep_days:
-        with file_write_lock:
-            for trade_date, fname in valid_files[keep_days:]:
-                fpath = os.path.join(vdir, fname)
-                try:
-                    os.remove(fpath)
-                except OSError as e:
-                    print(f"[Warning] Failed to remove expired volume file {fpath}: {e}", file=sys.stderr)
+        for trade_date, fname in valid_files[keep_days:]:
+            fpath = os.path.join(vdir, fname)
+            try:
+                remove_json(fpath)
+            except OSError as e:
+                print(f"[Warning] Failed to remove expired volume file {fpath}: {e}", file=sys.stderr)
 
 
 def get_available_dates(volume_dir=None):
@@ -359,20 +363,17 @@ def fetch_trends_raw(secid, ndays=1, timeout=5):
     }
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read()
-            parsed_json = None
-            for enc in ["utf-8", "gbk"]:
-                try:
-                    parsed_json = json.loads(raw.decode(enc))
-                    break
-                except UnicodeDecodeError:
-                    continue
-            if parsed_json is None:
-                parsed_json = json.loads(raw.decode("utf-8", errors="ignore"))
-            if isinstance(parsed_json, dict):
-                return parsed_json
-            return None
+        raw = read_upstream(req, timeout=timeout)
+        parsed_json = None
+        for enc in ["utf-8", "gbk"]:
+            try:
+                parsed_json = json.loads(raw.decode(enc))
+                break
+            except UnicodeDecodeError:
+                continue
+        if parsed_json is None:
+            parsed_json = json.loads(raw.decode("utf-8", errors="ignore"))
+        return parsed_json if isinstance(parsed_json, dict) else None
     except Exception as e:
         print(f"[Warning] Failed to fetch trends for secid {secid}: {e}", file=sys.stderr)
         return None
@@ -481,7 +482,7 @@ def determine_complete_through_for_date(d_str, minute_dict):
         return sorted_mins[-2] if len(sorted_mins) >= 2 else None
 
 
-def merge_and_save_etf_data(volume_dir, etf_code, trends_by_date):
+def merge_and_save_etf_data(volume_dir, etf_code, trends_by_date, source=SOURCE_NAME):
     """
     将某 ETF 抓取到的多日分钟数据合并落盘至各交易日 JSON。
     - 沿用保留先前已采集好的完整分钟，不被旧上游覆盖冲掉。
@@ -494,62 +495,66 @@ def merge_and_save_etf_data(volume_dir, etf_code, trends_by_date):
     for d_str, minute_dict in trends_by_date.items():
         if not minute_dict:
             continue
-        day_rec = load_day_file(vdir, d_str)
-        if day_rec is None:
-            day_rec = {
-                "version": 1,
-                "group_version": GROUP_VERSION,
-                "source": SOURCE_NAME,
-                "date": d_str,
-                "updated_at": now_iso,
-                "data_time": max(minute_dict.keys()),
-                "complete_through": None,
-                "etfs": {}
-            }
-        else:
-            day_rec["group_version"] = GROUP_VERSION
-            day_rec["updated_at"] = now_iso
-            curr_max = max(minute_dict.keys())
-            if "data_time" not in day_rec or curr_max > day_rec["data_time"]:
-                day_rec["data_time"] = curr_max
+        with file_lock(os.path.join(vdir, f"{d_str}.json")):
+            day_rec = load_day_file(vdir, d_str)
+            if day_rec is None:
+                day_rec = {
+                    "version": 1,
+                    "group_version": GROUP_VERSION,
+                    "source": SOURCE_NAME,
+                    "date": d_str,
+                    "updated_at": now_iso,
+                    "data_time": max(minute_dict.keys()),
+                    "complete_through": None,
+                    "etfs": {}
+                }
+            else:
+                day_rec["group_version"] = GROUP_VERSION
+                day_rec["updated_at"] = now_iso
+                curr_max = max(minute_dict.keys())
+                if "data_time" not in day_rec or curr_max > day_rec["data_time"]:
+                    day_rec["data_time"] = curr_max
 
-        # 测算该 ETF 在该日的新 complete_through
-        new_cp = determine_complete_through_for_date(d_str, minute_dict)
+            # 测算该 ETF 在该日的新 complete_through
+            new_cp = determine_complete_through_for_date(d_str, minute_dict)
 
-        if etf_code not in day_rec["etfs"]:
-            day_rec["etfs"][etf_code] = {
-                "name": meta["name"],
-                "market": meta.get("market", ""),
-                "source": SOURCE_NAME,
-                "last_success_at": now_iso,
-                "complete_through": new_cp,
-                "data": {}
-            }
-        else:
-            day_rec["etfs"][etf_code]["name"] = meta["name"]
-            day_rec["etfs"][etf_code]["market"] = meta.get("market", "")
-            day_rec["etfs"][etf_code]["last_success_at"] = now_iso
-            # complete_through 保持单调推进，不倒退
-            old_cp = day_rec["etfs"][etf_code].get("complete_through")
-            if new_cp:
-                if old_cp is None or new_cp > old_cp:
-                    day_rec["etfs"][etf_code]["complete_through"] = new_cp
+            if etf_code not in day_rec["etfs"]:
+                day_rec["etfs"][etf_code] = {
+                    "name": meta["name"],
+                    "market": meta.get("market", ""),
+                    "source": SOURCE_NAME,
+                    "last_success_at": now_iso,
+                    "complete_through": new_cp,
+                    "data": {}
+                }
+            else:
+                day_rec["etfs"][etf_code]["name"] = meta["name"]
+                day_rec["etfs"][etf_code]["market"] = meta.get("market", "")
+                day_rec["etfs"][etf_code]["last_success_at"] = now_iso
+                # complete_through 保持单调推进，不倒退
+                old_cp = day_rec["etfs"][etf_code].get("complete_through")
+                if new_cp:
+                    if old_cp is None or new_cp > old_cp:
+                        day_rec["etfs"][etf_code]["complete_through"] = new_cp
 
-        # 未结束的上游快照不能覆盖已经确认完整的同一分钟。
-        confirmed_through = day_rec["etfs"][etf_code].get("complete_through")
-        for m_str, amt in minute_dict.items():
-            if confirmed_through and m_str <= confirmed_through and (not new_cp or m_str > new_cp):
-                continue
-            day_rec["etfs"][etf_code]["data"][m_str] = amt
+            # 未结束的上游快照不能覆盖已经确认完整的同一分钟。
+            day_rec["etfs"][etf_code]["source"] = source
+            minute_sources = day_rec["etfs"][etf_code].setdefault("minute_sources", {})
+            confirmed_through = day_rec["etfs"][etf_code].get("complete_through")
+            for m_str, amt in minute_dict.items():
+                if confirmed_through and m_str <= confirmed_through and (not new_cp or m_str > new_cp):
+                    continue
+                day_rec["etfs"][etf_code]["data"][m_str] = amt
+                minute_sources[m_str] = source
 
-        # 更新该日总体的 complete_through（全组成员的最小完整边界）
-        etfs_cps = [day_rec["etfs"].get(code, {}).get("complete_through") for code in A_SHARE_ETF_METAS]
-        day_rec["complete_through"] = min(etfs_cps) if all(etfs_cps) else None
+            # 更新该日总体的 complete_through（全组成员的最小完整边界）
+            etfs_cps = [day_rec["etfs"].get(code, {}).get("complete_through") for code in A_SHARE_ETF_METAS]
+            day_rec["complete_through"] = min(etfs_cps) if all(etfs_cps) else None
 
-        save_day_file(vdir, d_str, day_rec)
+            save_day_file(vdir, d_str, day_rec)
 
 
-def merge_and_save_index_data(volume_dir, group_id, trends_by_date, latest_pre_close=None):
+def merge_and_save_index_data(volume_dir, group_id, trends_by_date, latest_pre_close=None, source=SOURCE_NAME, previous_closes=None):
     """独立保存真实指数点位；前收不跨日期套用，完整边界只按新快照推进。"""
     vdir = volume_dir or VOLUME_DIR
     meta = A_SHARE_INDEX_METAS.get(group_id) or LEGACY_INDEX_METAS.get(group_id, {"code": group_id, "name": group_id})
@@ -559,136 +564,137 @@ def merge_and_save_index_data(volume_dir, group_id, trends_by_date, latest_pre_c
         points = trends_by_date[date_str]
         if not points:
             continue
-        day_rec = load_day_file(vdir, date_str)
-        if day_rec is None:
-            day_rec = {
-                "version": 1, "group_version": GROUP_VERSION, "source": SOURCE_NAME,
-                "date": date_str, "updated_at": "", "data_time": "",
-                "complete_through": None, "etfs": {}, "indices": {}
-            }
+        with file_lock(os.path.join(vdir, f"{date_str}.json")):
+            day_rec = load_day_file(vdir, date_str)
+            if day_rec is None:
+                day_rec = {
+                    "version": 1, "group_version": GROUP_VERSION, "source": SOURCE_NAME,
+                    "date": date_str, "updated_at": "", "data_time": "",
+                    "complete_through": None, "etfs": {}, "indices": {}
+                }
+            else:
+                day_rec["group_version"] = GROUP_VERSION
+                day_rec["updated_at"] = now_iso
+            indices = day_rec.setdefault("indices", {})
+            obj = indices.setdefault(group_id, {
+                "code": meta["code"], "name": meta["name"], "source": SOURCE_NAME,
+                "data": {}, "pre_close": None, "last_success_at": "", "complete_through": None
+            })
+            # 历史日仅取前一返回交易日的真实收盘；最早日无依据时不覆盖已有可靠前收。
+            pre_close = trends_by_date[dates[pos - 1]].get("15:00") if pos else None
+            if pos == len(dates) - 1:
+                pre_close = positive_finite(latest_pre_close) or pre_close
+            if previous_closes and date_str in previous_closes:
+                pre_close = positive_finite(previous_closes[date_str])
+            if pre_close is not None:
+                obj["pre_close"] = pre_close
+            obj["source"] = source
+            obj.setdefault("minute_sources", {})
+            new_cp = determine_complete_through_for_date(date_str, points)
+            old_cp = obj.get("complete_through")
+            if new_cp and (old_cp is None or new_cp > old_cp):
+                obj["complete_through"] = new_cp
+            confirmed_through = obj.get("complete_through")
+            for minute, point in points.items():
+                if confirmed_through and minute <= confirmed_through and (not new_cp or minute > new_cp):
+                    continue
+                obj["data"][minute] = point
+                obj["minute_sources"][minute] = source
+            obj["last_success_at"] = now_iso
+            save_day_file(vdir, date_str, day_rec)
+
+
+def collector_instruments():
+    return [("etf", code, meta) for code, meta in A_SHARE_ETF_METAS.items()] + [
+        ("index", group_id, meta) for group_id, meta in A_SHARE_INDEX_METAS.items()
+    ]
+
+
+def instrument_symbol(meta):
+    market, code = meta["secid"].split(".", 1)
+    return ("sh" if market == "1" else "sz") + code
+
+
+def sync_instrument(volume_dir, kind, key, meta, ndays=1):
+    """每次只校准一个标的；备用请求同样受共享预算约束，无密集重试。"""
+    stamp = get_beijing_now_iso()
+    previous_closes, latest_pre_close = {}, None
+    source, primary_error = TENCENT_SOURCE, ""
+    try:
+        try:
+            parsed, previous_closes = fetch_tencent_series(
+                instrument_symbol(meta), STANDARD_TRADING_MINUTES, ndays=ndays, is_index=(kind == "index")
+            )
+        except Exception as exc:
+            primary_error = str(exc)
+            source = SOURCE_NAME
+            raw = fetch_trends_raw(meta["secid"], ndays=ndays, timeout=8)
+            parsed = parse_trends(raw, value_index=2 if kind == "index" else 6, strict_positive=(kind == "index"))
+            if not parsed:
+                raise ValueError(f"腾讯：{primary_error}；东方财富备用暂不可用")
+            response_dates = [row.split(" ", 1)[0] for row in raw["data"]["trends"] if isinstance(row, str)]
+            if max(response_dates, default="") == max(parsed):
+                latest_pre_close = positive_finite(raw["data"].get("preClose"))
+        if kind == "index":
+            merge_and_save_index_data(volume_dir, key, parsed, latest_pre_close, source, previous_closes)
         else:
-            day_rec["group_version"] = GROUP_VERSION
-            day_rec["updated_at"] = now_iso
-        indices = day_rec.setdefault("indices", {})
-        obj = indices.setdefault(group_id, {
-            "code": meta["code"], "name": meta["name"], "source": SOURCE_NAME,
-            "data": {}, "pre_close": None, "last_success_at": "", "complete_through": None
-        })
-        # 历史日仅取前一返回交易日的真实收盘；最早日无依据时不覆盖已有可靠前收。
-        pre_close = trends_by_date[dates[pos - 1]].get("15:00") if pos else None
-        if pos == len(dates) - 1:
-            pre_close = positive_finite(latest_pre_close) or pre_close
-        if pre_close is not None:
-            obj["pre_close"] = pre_close
-        new_cp = determine_complete_through_for_date(date_str, points)
-        old_cp = obj.get("complete_through")
-        if new_cp and (old_cp is None or new_cp > old_cp):
-            obj["complete_through"] = new_cp
-        confirmed_through = obj.get("complete_through")
-        for minute, point in points.items():
-            if confirmed_through and minute <= confirmed_through and (not new_cp or minute > new_cp):
-                continue
-            obj["data"][minute] = point
-        obj["last_success_at"] = now_iso
-        save_day_file(vdir, date_str, day_rec)
+            merge_and_save_etf_data(volume_dir, key, parsed, source)
+        report = {
+            "status": "ok", "source": source, "last_success_at": get_beijing_now_iso(),
+            "last_attempt_at": stamp, "dates": sorted(parsed), "dates_count": len(parsed),
+            "primary_error": primary_error,
+        }
+    except Exception as exc:
+        report = {"status": "failed", "error": str(exc), "last_attempt_at": stamp}
+        print(f"[AShareVolume] {key}: {exc}", file=sys.stderr)
+    with volume_lock:
+        field = "index_statuses" if kind == "index" else "etf_statuses"
+        volume_runtime_state[field][key] = report
+        if report["status"] == "ok":
+            volume_runtime_state["last_success_at"] = report["last_success_at"]
+        payload_cache["payload"] = None
+    return report
+
+
+def update_collector_status():
+    with volume_lock:
+        etfs = volume_runtime_state["etf_statuses"]
+        indices = volume_runtime_state["index_statuses"]
+        reports = list(etfs.values()) + list(indices.values())
+        failures = [r for r in reports if r["status"] != "ok"]
+        successes = len(reports) - len(failures)
+        if failures:
+            status = "partial_degraded" if successes else "cached_fallback"
+            desc = f"低频采集：分时校准成功{successes}/14，部分请求暂不可用，保留已有数据"
+        elif len(reports) < 14:
+            status = "syncing"
+            desc = f"低频采集：正在分散补齐分时（{successes}/14），允许数分钟延迟"
+        else:
+            status = "online_fresh"
+            fallback = sum(r.get("source") == SOURCE_NAME for r in reports)
+            desc = "腾讯优先 · 分时低频校准完成，允许数分钟延迟"
+            if fallback:
+                desc += f" · 东方财富备用{fallback}个标的"
+        volume_runtime_state["status"] = status
+        volume_runtime_state["status_desc"] = desc
+        volume_runtime_state["last_error"] = "; ".join(r["error"] for r in failures)
+        payload_cache["payload"] = None
+        return status, desc
 
 
 def sync_all_etfs(volume_dir=None, ndays=1, throttle_delay=0.25):
-    """
-    依次抓取 10 只 ETF 与 4 个真实指数，分别保存成交额和点位。
-    网络请求在锁外执行，绝不阻塞读请求。
-    返回: (status_enum, updated_dates_set, status_message, per_etf_results)
-    """
-    vdir = volume_dir or VOLUME_DIR
-    etf_results = {}
-    per_etf_report = {}
-    success_count = 0
-    errors = []
-    now_iso = get_beijing_now_iso()
-
-    for code, meta in A_SHARE_ETF_METAS.items():
-        secid = meta["secid"]
-        raw = fetch_trends_raw(secid, ndays=ndays)
-        if isinstance(raw, dict) and raw.get("rc") == 0:
-            parsed = parse_trends(raw)
-            if parsed:
-                etf_results[code] = parsed
-                success_count += 1
-                per_etf_report[code] = {
-                    "status": "ok",
-                    "source": SOURCE_NAME,
-                    "last_success_at": now_iso,
-                    "dates_count": len(parsed)
-                }
-            else:
-                errors.append(f"{code}: 响应为空")
-                per_etf_report[code] = {"status": "failed", "error": "响应为空", "last_attempt_at": now_iso}
-        else:
-            errors.append(f"{code}: 请求失败")
-            per_etf_report[code] = {"status": "failed", "error": "上游请求失败", "last_attempt_at": now_iso}
-
-        if throttle_delay > 0:
+    """完整校准入口；所有请求仍经过预算，后台改为逐标的分散调度。"""
+    vdir, dates = volume_dir or VOLUME_DIR, set()
+    for kind, key, meta in collector_instruments():
+        report = sync_instrument(vdir, kind, key, meta, ndays)
+        dates.update(report.get("dates", []))
+        if throttle_delay:
             time.sleep(throttle_delay)
-
-    # ETF 与指数分别解析和记录状态，指数点位绝不进入成交额数据。
-    index_results = {}
-    index_reports = {}
-    for group_id, meta in A_SHARE_INDEX_METAS.items():
-        raw = fetch_trends_raw(meta["secid"], ndays=ndays)
-        parsed = parse_trends(raw, value_index=2, strict_positive=True)
-        attempted_at = get_beijing_now_iso()
-        if parsed:
-            response_dates = [row.split(" ", 1)[0] for row in raw["data"]["trends"] if isinstance(row, str)]
-            latest_pre_close = positive_finite(raw["data"].get("preClose")) if max(response_dates, default="") == max(parsed) else None
-            index_results[group_id] = (parsed, latest_pre_close)
-            index_reports[group_id] = {
-                "status": "ok", "last_success_at": attempted_at, "dates": sorted(parsed)
-            }
-        else:
-            index_reports[group_id] = {
-                "status": "failed", "error": "指数上游请求失败或无有效点位", "last_attempt_at": attempted_at
-            }
-        if throttle_delay > 0:
-            time.sleep(throttle_delay)
-
-    total_etfs = len(A_SHARE_ETF_METAS)
-    total_indices = len(A_SHARE_INDEX_METAS)
-
-    # 集中落盘写入
-    updated_dates = set()
-    if etf_results:
-        for code, trends_by_date in etf_results.items():
-            for d_str in trends_by_date.keys():
-                updated_dates.add(d_str)
-            merge_and_save_etf_data(vdir, code, trends_by_date)
-    for group_id, (trends_by_date, pre_close) in index_results.items():
-        merge_and_save_index_data(vdir, group_id, trends_by_date, pre_close)
-        updated_dates.update(trends_by_date)
-    if etf_results or index_results:
-        cleanup_old_trading_days(vdir, keep_days=MAX_RETENTION_DAYS)
+    cleanup_old_trading_days(vdir, keep_days=MAX_RETENTION_DAYS)
+    status, desc = update_collector_status()
     with volume_lock:
-        volume_runtime_state["index_statuses"] = index_reports
-        payload_cache["payload"] = None
-
-    if success_count == total_etfs:
-        status_enum = "online_fresh"
-        msg = f"全部{total_etfs}只ETF同步成功"
-    elif success_count > 0:
-        status_enum = "partial_degraded"
-        failed_list = [c for c, rep in per_etf_report.items() if rep["status"] != "ok"]
-        msg = f"🟡 部分标的拉取成功 ({success_count}/{total_etfs})，失败标的: {', '.join(failed_list)}"
-    else:
-        status_enum = "error"
-        msg = f"🔴 全部{total_etfs}只ETF拉取失败: {'; '.join(errors[:2])}"
-
-    failed_indices = [A_SHARE_INDEX_METAS[g]["name"] for g, rep in index_reports.items() if rep["status"] != "ok"]
-    if failed_indices:
-        msg += f"；指数同步失败 ({len(failed_indices)}/{total_indices}): {', '.join(failed_indices)}，已有点位保留"
-        if status_enum == "online_fresh":
-            status_enum = "partial_degraded"
-    else:
-        msg += f"；全部{total_indices}个指数同步成功"
-    return status_enum, updated_dates, msg, per_etf_report
+        reports = dict(volume_runtime_state["etf_statuses"])
+    return status, dates, desc, reports
 
 
 def compute_baseline_median(hist_day_records, group_codes, minute):
@@ -834,6 +840,7 @@ def calculate_minute_volume_payload(volume_dir=None, target_date=None):
 
     with volume_lock:
         index_reports = dict(volume_runtime_state["index_statuses"])
+        snapshots = dict(volume_runtime_state["snapshots"])
     groups_output = []
     for grp in A_SHARE_ETF_GROUPS:
         grp_codes = grp["codes"]
@@ -856,11 +863,15 @@ def calculate_minute_volume_payload(volume_dir=None, target_date=None):
             index_status, index_desc = "online_fresh", "指数同步成功"
         else:
             index_status, index_desc = "cached_fallback", "读取已保存指数点位"
+        snapshot = snapshots.get(instrument_symbol(index_meta), {})
+        if not is_today or snapshot.get("date") != effective_date:
+            snapshot = None
         index_info = {
-            "code": index_meta["code"], "name": index_meta["name"], "source": SOURCE_NAME,
+            "code": index_meta["code"], "name": index_meta["name"], "source": index_obj.get("source", SOURCE_NAME),
             "pre_close": pre_close, "last_success_at": index_obj.get("last_success_at", ""),
             "data_time": max(index_data, default=""), "status": index_status,
-            "status_desc": index_desc, "complete_through": index_cp
+            "status_desc": index_desc, "complete_through": index_cp,
+            "snapshot": snapshot,
         }
 
         for m_str in minutes_to_process:
@@ -1092,129 +1103,107 @@ def calculate_minute_volume_payload(volume_dir=None, target_date=None):
 
 
 def get_a_share_volume_payload(target_date=None, force=False, volume_dir=None):
-    """带缓存获取接口数据"""
+    """只读本地档案；force仅跳过计算缓存，不触发上游请求。"""
     vdir = volume_dir or VOLUME_DIR
     now = time.time()
+    payload = None
     with volume_lock:
         if not force and payload_cache["payload"] and payload_cache["date"] == target_date:
             if (now - payload_cache["timestamp"]) < PAYLOAD_CACHE_TTL:
-                return payload_cache["payload"]
+                payload = payload_cache["payload"]
+    if payload is None:
+        payload = calculate_minute_volume_payload(vdir, target_date=target_date)
+        if isinstance(payload, dict) and payload.get("code") == 200:
+            with volume_lock:
+                payload_cache["date"] = target_date
+                payload_cache["timestamp"] = now
+                payload_cache["payload"] = payload
+    with volume_lock:
+        snapshot_error = volume_runtime_state["snapshot_error"]
+    return {**payload, "collector": {
+        **request_budget.info(), "scope": "a_share_volume_and_daily",
+        "snapshot_interval_seconds": 60, "series_interval_seconds": 20,
+        "snapshot_error": snapshot_error,
+    }}
 
-    payload = calculate_minute_volume_payload(vdir, target_date=target_date)
-    if isinstance(payload, dict) and payload.get("code") == 200:
-        with volume_lock:
-            payload_cache["date"] = target_date
-            payload_cache["timestamp"] = now
-            payload_cache["payload"] = payload
-    return payload
+
+class LowRateCollector:
+    """快照至多每60秒一次；完整分时逐个发送，正常约5分钟覆盖一轮。"""
+    def __init__(self, volume_dir=None):
+        self.volume_dir = volume_dir or VOLUME_DIR
+        self.instruments = collector_instruments()
+        self.cursor = 0
+        self.bootstrap_remaining = len(self.instruments)
+        self.history_pending = {(kind, key) for kind, key, _ in self.instruments}
+        self.next_snapshot = 0
+        self.next_series = 0
+        self.report_date = None
+
+    def tick(self, now=None):
+        now = now or datetime.now(BEIJING_TZ)
+        hhmm = now.strftime("%H:%M")
+        active = now.weekday() < 5 and ("09:25" <= hhmm <= "11:35" or "12:55" <= hhmm <= "15:35")
+        if not active and not self.bootstrap_remaining:
+            return False
+        if self.report_date != now.date():
+            self.report_date = now.date()
+            with volume_lock:
+                volume_runtime_state["etf_statuses"] = {}
+                volume_runtime_state["index_statuses"] = {}
+        worked = False
+        if time.monotonic() >= self.next_snapshot and (active or self.bootstrap_remaining == len(self.instruments)):
+            try:
+                symbols = [instrument_symbol(meta) for _, _, meta in self.instruments]
+                snapshots = fetch_tencent_snapshot(symbols)
+                with volume_lock:
+                    for symbol, quote in snapshots.items():
+                        previous = volume_runtime_state["snapshots"].get(symbol, {})
+                        if quote["time"] >= previous.get("time", ""):
+                            volume_runtime_state["snapshots"][symbol] = quote
+                    volume_runtime_state["snapshot_error"] = ""
+                    payload_cache["payload"] = None
+            except Exception as exc:
+                with volume_lock:
+                    volume_runtime_state["snapshot_error"] = str(exc)
+                print(f"[AShareVolume Snapshot] {exc}", file=sys.stderr)
+            self.next_snapshot = time.monotonic() + 60
+            worked = True
+        if time.monotonic() >= self.next_series:
+            kind, key, meta = self.instruments[self.cursor]
+            with volume_lock:
+                volume_runtime_state["is_syncing"] = True
+                volume_runtime_state["last_attempt_at"] = get_beijing_now_iso()
+            try:
+                report = sync_instrument(self.volume_dir, kind, key, meta, 5 if (kind, key) in self.history_pending else 1)
+                if report["status"] == "ok":
+                    self.history_pending.discard((kind, key))
+                self.cursor = (self.cursor + 1) % len(self.instruments)
+                self.bootstrap_remaining = max(0, self.bootstrap_remaining - 1)
+                if self.cursor == 0:
+                    cleanup_old_trading_days(self.volume_dir)
+                update_collector_status()
+            finally:
+                self.next_series = time.monotonic() + 20
+                with volume_lock:
+                    volume_runtime_state["is_syncing"] = False
+            worked = True
+        return worked
 
 
 def volume_collector_daemon(volume_dir=None):
-    """
-    后台自主 A 股分钟成交采集守护线程
-    - 启动时必采最近 5 日（带 0.25s 节流），填补离线断层
-    - 启动失败支持至多 3 次有限重试
-    - 盘中时段（工作日 09:25~11:35, 12:55~15:35）自动轮询（35秒周期）
-    - 异常安全保护，finally 保证 is_syncing 复位
-    """
-    vdir = volume_dir or VOLUME_DIR
-    ensure_volume_storage(vdir)
-    print(f"[{time.strftime('%H:%M:%S')}] 🚀 [AShareVolume] 守护线程启动，正在同步近5日历史与最新分时...", flush=True)
-
-    # 1. 启动时补采最近 5 日
-    max_init_retries = 3
-    init_success = False
-    for attempt in range(1, max_init_retries + 1):
-        with volume_lock:
-            volume_runtime_state["status"] = "syncing"
-            volume_runtime_state["status_desc"] = f"正在同步最近5日一分钟历史数据 (尝试 {attempt}/{max_init_retries})..."
-            volume_runtime_state["is_syncing"] = True
-
-        try:
-            st_enum, updated_dates, msg, etf_rep = sync_all_etfs(vdir, ndays=5, throttle_delay=0.25)
-            with volume_lock:
-                volume_runtime_state["last_attempt_at"] = get_beijing_now_iso()
-                volume_runtime_state["etf_statuses"] = etf_rep
-                if st_enum in ["online_fresh", "partial_degraded"]:
-                    volume_runtime_state["status"] = st_enum
-                    volume_runtime_state["status_desc"] = msg
-                    volume_runtime_state["last_success_at"] = get_beijing_now_iso()
-                    volume_runtime_state["last_error"] = ""
-                    payload_cache["payload"] = None
-                    init_success = True
-                    print(f"[{time.strftime('%H:%M:%S')}] ✅ [AShareVolume] 启动同步成功: {msg}", flush=True)
-                    if st_enum == "online_fresh":
-                        break
-                else:
-                    volume_runtime_state["status"] = "error"
-                    volume_runtime_state["status_desc"] = f"启动同步失败 (尝试 {attempt}/{max_init_retries})"
-                    volume_runtime_state["last_error"] = msg
-                    print(f"[{time.strftime('%H:%M:%S')}] ⚠️ [AShareVolume] 启动同步未成功: {msg}", file=sys.stderr)
-        except Exception as e:
-            with volume_lock:
-                volume_runtime_state["status"] = "error"
-                volume_runtime_state["status_desc"] = f"启动同步异常: {e}"
-                volume_runtime_state["last_error"] = str(e)
-            print(f"[{time.strftime('%H:%M:%S')}] ❌ [AShareVolume] 启动异常: {e}", file=sys.stderr)
-        finally:
-            with volume_lock:
-                volume_runtime_state["is_syncing"] = False
-
-        if attempt < max_init_retries:
-            time.sleep(10)
-
-    if not init_success:
-        avail = get_available_dates(vdir)
-        with volume_lock:
-            if avail:
-                volume_runtime_state["status"] = "cached_fallback"
-                volume_runtime_state["status_desc"] = f"🟡 上游同步暂不可用，已加载本地 {len(avail)} 个历史交易日"
-            else:
-                volume_runtime_state["status"] = "error"
-                volume_runtime_state["status_desc"] = "🔴 本地无档案且上游无响应"
-
-    # 2. 常驻循环轮询
+    """启动补采也分散执行；不补发错过的轮次，不绕过共享请求预算。"""
+    ensure_volume_storage(volume_dir)
+    collector = LowRateCollector(volume_dir)
+    print("[AShareVolume] 低频采集启动：腾讯优先，共享预算最多5次/60秒", flush=True)
     while True:
         try:
-            now_bj = datetime.now(BEIJING_TZ)
-            wday = now_bj.weekday()  # 0~4 工作日
-            hhmm = now_bj.strftime("%H:%M")
-
-            in_morning = ("09:25" <= hhmm <= "11:35")
-            in_afternoon = ("12:55" <= hhmm <= "15:35")
-            is_trading_window = (wday < 5) and (in_morning or in_afternoon)
-
-            if is_trading_window:
-                with volume_lock:
-                    volume_runtime_state["is_syncing"] = True
-                    volume_runtime_state["last_attempt_at"] = get_beijing_now_iso()
-
-                try:
-                    st_enum, updated_dates, msg, etf_rep = sync_all_etfs(vdir, ndays=1, throttle_delay=0.15)
-                    with volume_lock:
-                        volume_runtime_state["status"] = st_enum
-                        volume_runtime_state["status_desc"] = msg
-                        volume_runtime_state["etf_statuses"] = etf_rep
-                        if st_enum in ["online_fresh", "partial_degraded"]:
-                            volume_runtime_state["last_success_at"] = get_beijing_now_iso()
-                            volume_runtime_state["last_error"] = ""
-                            payload_cache["payload"] = None
-                        else:
-                            volume_runtime_state["last_error"] = msg
-                finally:
-                    with volume_lock:
-                        volume_runtime_state["is_syncing"] = False
-
-                time.sleep(35)
-            else:
-                time.sleep(60)
-        except Exception as e:
+            collector.tick()
+        except Exception as exc:
             with volume_lock:
-                volume_runtime_state["status"] = "error"
-                volume_runtime_state["last_error"] = str(e)
+                volume_runtime_state["last_error"] = str(exc)
                 volume_runtime_state["is_syncing"] = False
-            print(f"[AShareVolume Daemon Error] {e}", file=sys.stderr)
-            time.sleep(60)
+            print(f"[AShareVolume Daemon Error] {exc}", file=sys.stderr)
+        time.sleep(1)
 
 
 def start_a_share_volume_daemon(volume_dir=None):

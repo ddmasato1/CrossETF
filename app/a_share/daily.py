@@ -11,7 +11,10 @@ import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta
 
-from a_share_volume import A_SHARE_ETF_METAS, BEIJING_TZ, GROUP_VERSION, format_amount_chinese
+from app.core.config import CURRENT_DIR
+from app.a_share.volume import A_SHARE_ETF_METAS, BEIJING_TZ, GROUP_VERSION, format_amount_chinese
+from app.a_share.requests import read_upstream
+from app.core.storage import read_json, write_json
 
 SOURCE = "eastmoney_daily_kline"
 # 基金官方停牌公告及年报目录交叉核实：11月28日开市停牌，29日公布结果后复牌。
@@ -27,9 +30,7 @@ CONFIRMED_SUSPENSIONS = {
         },
     },
 }
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORY_FILE = ""
-file_lock = threading.Lock()
 state_lock = threading.Lock()
 runtime_state = {"is_syncing": False, "last_error": ""}
 
@@ -56,12 +57,10 @@ def completed_cutoff(now):
 
 
 def read_history():
-    with file_lock:
-        try:
-            with open(HISTORY_FILE, "r", encoding="utf-8") as handle:
-                archive = json.load(handle)
-        except FileNotFoundError:
-            return None
+    try:
+        archive = read_json(HISTORY_FILE)
+    except FileNotFoundError:
+        return None
     if not isinstance(archive, dict) or archive.get("version") != 1:
         raise ValueError("日成交额档案格式不受支持")
     try:
@@ -81,12 +80,7 @@ def read_history():
 
 
 def save_history(archive):
-    with file_lock:
-        os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
-        temporary = HISTORY_FILE + ".tmp"
-        with open(temporary, "w", encoding="utf-8") as handle:
-            json.dump(archive, handle, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
-        os.replace(temporary, HISTORY_FILE)
+    write_json(HISTORY_FILE, archive, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
 
 
 def fetch_daily(secid, start, end, value_index=6):
@@ -100,8 +94,7 @@ def fetch_daily(secid, start, end, value_index=6):
     request = urllib.request.Request(url, headers={
         "User-Agent": "Mozilla/5.0", "Referer": "https://quote.eastmoney.com/",
     })
-    with urllib.request.urlopen(request, timeout=15) as response:
-        payload = json.load(response)
+    payload = json.loads(read_upstream(request, timeout=15).decode("utf-8"))
     data = payload.get("data") or {}
     if payload.get("rc") != 0 or str(data.get("code")) != secid.split(".", 1)[1]:
         raise ValueError("日线接口未返回对应标的")

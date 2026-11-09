@@ -4,7 +4,7 @@ CrossETF 是一个面向个人使用的 ETF 行情看板，用于跟踪境内跨
 
 后端使用 Python 3.11 标准库，前端使用 Vue 3 CDN，数据以 JSON 文件保存，无需安装 pip 或 npm 依赖。支持 Docker 常驻部署。
 
-版本更新见 [CHANGELOG](CHANGELOG.md)，接口与维护说明见 [handover](handover.md)。
+版本更新见 [CHANGELOG](CHANGELOG.md)。开发者或 agent 接手项目时，先阅读 [项目交接](docs/handover.md)，再按任务查阅 `docs/` 下的功能专题及 `app/`、`tests/` 中的对应模块；测试入口见 [测试说明](tests/README.md)。
 
 ## 功能
 

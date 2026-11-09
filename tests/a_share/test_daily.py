@@ -1,6 +1,5 @@
 """日成交额回归：隔离档案、模拟上游，不读取生产数据。"""
 import copy
-import io
 import json
 import os
 import tempfile
@@ -8,7 +7,7 @@ import unittest
 from datetime import date, datetime
 from unittest.mock import patch
 
-import a_share_daily as daily
+from app.a_share import daily
 
 
 class DailyHistoryTests(unittest.TestCase):
@@ -61,7 +60,7 @@ class DailyHistoryTests(unittest.TestCase):
             "2026-11-05,3,3.5,4,2,123,987654.32,1",
             "2026-11-06,3,3.6,4,2,0,0,1",
         ]}}
-        with patch.object(daily.urllib.request, "urlopen", side_effect=lambda *a, **kw: io.BytesIO(json.dumps(raw).encode())):
+        with patch.object(daily, "read_upstream", return_value=json.dumps(raw).encode()):
             amounts, origin = daily.fetch_daily("1.510300", "2026-11-05", "2026-11-06")
             closes, _ = daily.fetch_daily("1.510300", "2026-11-05", "2026-11-06", value_index=2)
         self.assertEqual(amounts, {"2026-11-05": 987654.32, "2026-11-06": 0})
@@ -72,12 +71,12 @@ class DailyHistoryTests(unittest.TestCase):
         for code, amount in (("WRONG", "100"), ("510300", "NaN"), ("510300", "inf"), ("510300", "-1")):
             with self.subTest(code=code, amount=amount):
                 raw = {"rc": 0, "data": {"code": code, "klines": [f"2026-11-06,3,4,4,2,5,{amount},1"]}}
-                with patch.object(daily.urllib.request, "urlopen", return_value=io.BytesIO(json.dumps(raw).encode())):
+                with patch.object(daily, "read_upstream", return_value=json.dumps(raw).encode()):
                     with self.assertRaises(ValueError):
                         daily.fetch_daily("1.510300", "2026-11-06", "2026-11-06")
         raw["data"]["code"] = "510300"
         raw["data"]["klines"] = ["2026-11-06,3,0,4,2,5,100,1"]
-        with patch.object(daily.urllib.request, "urlopen", return_value=io.BytesIO(json.dumps(raw).encode())):
+        with patch.object(daily, "read_upstream", return_value=json.dumps(raw).encode()):
             with self.assertRaises(ValueError):
                 daily.fetch_daily("1.510300", "2026-11-06", "2026-11-06", value_index=2)
 

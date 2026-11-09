@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-test_a_share_volume.py - A股重点宽基ETF一分钟成交额观察引擎单元测试
+A股重点宽基ETF一分钟成交额观察引擎单元测试
 
 测试使用纯标准库、模拟上游与隔离临时档案，不写生产运行数据。
 
@@ -23,7 +23,7 @@ import unittest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-import a_share_volume
+from app.a_share import volume as a_share_volume
 
 
 class BaseVolumeTestCase(unittest.TestCase):
@@ -46,6 +46,8 @@ class BaseVolumeTestCase(unittest.TestCase):
             a_share_volume.volume_runtime_state["last_success_at"] = ""
             a_share_volume.volume_runtime_state["etf_statuses"] = {}
             a_share_volume.volume_runtime_state["index_statuses"] = {}
+            a_share_volume.volume_runtime_state["snapshots"] = {}
+            a_share_volume.volume_runtime_state["snapshot_error"] = ""
             a_share_volume.volume_runtime_state["is_syncing"] = False
 
     def tearDown(self):
@@ -157,7 +159,7 @@ class TestCompleteThroughBoundaries(BaseVolumeTestCase):
     def test_determine_complete_through_historical_day(self):
         """历史交易日：到达 15:00 确认为 15:00；早停或中途停机仅倒数第二分钟走完，不推定为 15:00"""
         mock_now = datetime(2026, 11, 9, 16, 0, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = mock_now
             mock_dt.strptime = datetime.strptime
 
@@ -184,7 +186,7 @@ class TestCompleteThroughBoundaries(BaseVolumeTestCase):
 
         # 场景 A: 盘中 10:30，上游返回包含 10:30（进行中）
         now_1030 = datetime(2026, 11, 9, 10, 30, 15, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_1030
             mock_dt.strptime = datetime.strptime
             mins = {"09:30": 1, "10:29": 1, "10:30": 1}
@@ -193,7 +195,7 @@ class TestCompleteThroughBoundaries(BaseVolumeTestCase):
 
         # 场景 B: 盘中 10:35，上游最新仅到 10:30（已走完，上游延迟）
         now_1035 = datetime(2026, 11, 9, 10, 35, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_1035
             mock_dt.strptime = datetime.strptime
             mins = {"09:30": 1, "10:29": 1, "10:30": 1}
@@ -202,7 +204,7 @@ class TestCompleteThroughBoundaries(BaseVolumeTestCase):
 
         # 场景 C: 午休 12:00，早盘 11:30 已全部走完
         now_lunch = datetime(2026, 11, 9, 12, 0, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_lunch
             mock_dt.strptime = datetime.strptime
             mins = {"09:30": 1, "11:30": 1}
@@ -211,7 +213,7 @@ class TestCompleteThroughBoundaries(BaseVolumeTestCase):
 
         # 场景 D: 收盘后 15:30，全天到达 15:00
         now_after_close = datetime(2026, 11, 9, 15, 30, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_after_close
             mock_dt.strptime = datetime.strptime
             mins = {"09:30": 1, "15:00": 1}
@@ -225,7 +227,7 @@ class TestCompleteThroughBoundaries(BaseVolumeTestCase):
 
         # 初始采集到 11:30
         now_1135 = datetime(2026, 11, 9, 11, 35, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_1135
             mock_dt.strptime = datetime.strptime
             a_share_volume.merge_and_save_etf_data(
@@ -238,7 +240,7 @@ class TestCompleteThroughBoundaries(BaseVolumeTestCase):
 
         # 随后收到一个由于网络瞬断仅包含到 10:00 的落后快照
         now_1136 = datetime(2026, 11, 9, 11, 36, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_1136
             mock_dt.strptime = datetime.strptime
             a_share_volume.merge_and_save_etf_data(
@@ -262,7 +264,7 @@ class TestCompleteThroughBoundaries(BaseVolumeTestCase):
 
         # 补齐第 10 只，但其边界仅为 11:30（历史日未到15:00，倒数第二分钟11:29确认为走完）
         now_after = datetime(2026, 11, 9, 16, 0, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_after
             mock_dt.strptime = datetime.strptime
             a_share_volume.merge_and_save_etf_data(
@@ -307,7 +309,7 @@ class TestSnapshotOverwriteProtection(BaseVolumeTestCase):
         # 1. 建立完整交易日（241分钟），每个分钟金额为 1000.0
         full_trends = {date_str: {m: 1000.0 for m in a_share_volume.STANDARD_TRADING_MINUTES}}
         now_close = datetime(2026, 11, 6, 15, 30, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_close
             mock_dt.strptime = datetime.strptime
             a_share_volume.merge_and_save_etf_data(self.volume_dir, code, full_trends)
@@ -319,7 +321,7 @@ class TestSnapshotOverwriteProtection(BaseVolumeTestCase):
 
         # 2. 模拟新快照发生故障：仅返回 09:30~10:00，且 10:00 正在进行中（金额变为半额 500.0）
         now_interrupted = datetime(2026, 11, 6, 10, 0, 30, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_interrupted
             mock_dt.strptime = datetime.strptime
             incomplete_trends = {date_str: {m: 500.0 for m in a_share_volume.STANDARD_TRADING_MINUTES if m <= "10:00"}}
@@ -341,7 +343,7 @@ class TestSnapshotOverwriteProtection(BaseVolumeTestCase):
         # 初始完整指数落盘（241分钟点位）
         full_points = {date_str: {m: 4000.0 + i for i, m in enumerate(a_share_volume.STANDARD_TRADING_MINUTES)}}
         now_close = datetime(2026, 11, 6, 15, 30, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_close
             mock_dt.strptime = datetime.strptime
             a_share_volume.merge_and_save_index_data(self.volume_dir, group_id, full_points, latest_pre_close=3950.0)
@@ -349,7 +351,7 @@ class TestSnapshotOverwriteProtection(BaseVolumeTestCase):
         # 随后收到残缺的指数快照
         partial_points = {date_str: {"09:30": 3999.0, "10:00": 4010.0}}
         now_midday = datetime(2026, 11, 6, 10, 0, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_midday
             mock_dt.strptime = datetime.strptime
             a_share_volume.merge_and_save_index_data(self.volume_dir, group_id, partial_points)
@@ -385,7 +387,7 @@ class TestTenEtfsAggregateAndRankConsistency(BaseVolumeTestCase):
 
         # 读取 payload（查询历史日）
         now_test = datetime(2026, 11, 9, 18, 0, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_test
             mock_dt.strptime = datetime.strptime
             payload = a_share_volume.calculate_minute_volume_payload(self.volume_dir, target_date=date_str)
@@ -444,7 +446,7 @@ class TestTenEtfsAggregateAndRankConsistency(BaseVolumeTestCase):
         self.create_mock_etf_day(date_str, complete_through="15:00", etf_amounts=500.0)
 
         now_test = datetime(2026, 11, 9, 18, 0, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_test
             mock_dt.strptime = datetime.strptime
             payload = a_share_volume.calculate_minute_volume_payload(self.volume_dir, target_date=date_str)
@@ -469,7 +471,7 @@ class TestTenEtfsAggregateAndRankConsistency(BaseVolumeTestCase):
         a_share_volume.save_day_file(self.volume_dir, date_str, day_rec)
 
         now_test = datetime(2026, 11, 9, 18, 0, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_test
             mock_dt.strptime = datetime.strptime
             payload = a_share_volume.calculate_minute_volume_payload(self.volume_dir, target_date=date_str)
@@ -502,7 +504,7 @@ class TestMissingDataNotZeroFilled(BaseVolumeTestCase):
         self.create_mock_etf_day(date_str, complete_through="15:00", etf_amounts=custom_amounts)
 
         now_test = datetime(2026, 11, 9, 18, 0, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_test
             mock_dt.strptime = datetime.strptime
             payload = a_share_volume.calculate_minute_volume_payload(self.volume_dir, target_date=date_str)
@@ -583,7 +585,7 @@ class TestMissingDataNotZeroFilled(BaseVolumeTestCase):
         a_share_volume.save_day_file(self.volume_dir, date_str, rec)
 
         now_test = datetime(2026, 11, 9, 18, 0, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_test
             mock_dt.strptime = datetime.strptime
             payload = a_share_volume.calculate_minute_volume_payload(self.volume_dir, target_date=date_str)
@@ -674,7 +676,7 @@ class TestHistoricalBaselineMedianCalculation(BaseVolumeTestCase):
         self.create_mock_etf_day("2026-11-06")
 
         now_test = datetime(2026, 11, 9, 18, 0, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_test
             mock_dt.strptime = datetime.strptime
             payload = a_share_volume.calculate_minute_volume_payload(self.volume_dir, target_date="2026-11-06")
@@ -722,7 +724,7 @@ class TestHistoricalIndexPreviousClose(BaseVolumeTestCase):
             "2026-11-06": {"09:30": 3920.0, "15:00": 3950.0}
         }
         now_close = datetime(2026, 11, 6, 15, 30, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_close
             mock_dt.strptime = datetime.strptime
             # 上游返回的 latest_pre_close 为 3910.0（仅适用于 2026-11-06）
@@ -749,7 +751,7 @@ class TestHistoricalIndexPreviousClose(BaseVolumeTestCase):
         # 写入 11-04 数据，无可靠前收
         trends_04 = {"2026-11-04": {m: 4000.0 for m in a_share_volume.STANDARD_TRADING_MINUTES}}
         now_close = datetime(2026, 11, 6, 15, 30, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_close
             mock_dt.strptime = datetime.strptime
             self.create_mock_etf_day("2026-11-04")
@@ -769,7 +771,7 @@ class TestHistoricalIndexPreviousClose(BaseVolumeTestCase):
         """如果某日已有落盘的可靠前收，后续如果同步返回 None，绝不冲掉已有的可靠前收"""
         group_id = "hs300"
         now_close = datetime(2026, 11, 6, 15, 30, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_close
             mock_dt.strptime = datetime.strptime
             # 首次建立，带有前收 3880.0
@@ -895,7 +897,7 @@ class TestIntradayActiveSessionBehavior(BaseVolumeTestCase):
         self.create_mock_etf_day(today_str, complete_through="10:29", etf_amounts=custom_amounts)
 
         now_1030 = datetime(2026, 11, 9, 10, 30, 20, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_1030
             mock_dt.strptime = datetime.strptime
             payload = a_share_volume.calculate_minute_volume_payload(self.volume_dir, target_date=today_str)
@@ -931,7 +933,7 @@ class TestIntradayActiveSessionBehavior(BaseVolumeTestCase):
         today_str = "2026-11-09"
         snapshot = {today_str: {m: 1000.0 for m in a_share_volume.STANDARD_TRADING_MINUTES}}
         now_1500 = datetime(2026, 11, 9, 15, 0, 30, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_1500
             mock_dt.strptime = datetime.strptime
             for code in a_share_volume.A_SHARE_ETF_METAS:
@@ -948,7 +950,7 @@ class TestIntradayActiveSessionBehavior(BaseVolumeTestCase):
         self.assertTrue(agg_1500["is_cumulative_complete"])
 
         now_1501 = datetime(2026, 11, 9, 15, 1, 0, tzinfo=a_share_volume.BEIJING_TZ)
-        with patch("a_share_volume.datetime") as mock_dt:
+        with patch("app.a_share.volume.datetime") as mock_dt:
             mock_dt.now.return_value = now_1501
             mock_dt.strptime = datetime.strptime
             stale = a_share_volume.calculate_minute_volume_payload(self.volume_dir, target_date=today_str)["aggregate"]
@@ -986,14 +988,15 @@ class TestSyncAllEtfsMockPipeline(BaseVolumeTestCase):
                 }
             }
 
-        with patch("a_share_volume.fetch_trends_raw", side_effect=mock_fetch):
+        with patch("app.a_share.volume.fetch_tencent_series", side_effect=ValueError("腾讯不可用")), \
+                patch("app.a_share.volume.fetch_trends_raw", side_effect=mock_fetch):
             status_enum, updated_dates, msg, etf_rep = a_share_volume.sync_all_etfs(
                 self.volume_dir, ndays=1, throttle_delay=0
             )
 
         self.assertEqual(status_enum, "online_fresh")
-        self.assertIn("全部10只ETF同步成功", msg)
-        self.assertIn("全部4个指数同步成功", msg)
+        self.assertIn("分时低频校准完成", msg)
+        self.assertIn("东方财富备用14个标的", msg)
         self.assertIn(today_str, updated_dates)
         self.assertEqual(len(etf_rep), 10)
         for code, rep in etf_rep.items():
@@ -1015,7 +1018,8 @@ class TestSyncAllEtfsMockPipeline(BaseVolumeTestCase):
             trends = [f"{today_str} 09:30,3000,3001,3002,2999,100,5000000"]
             return {"rc": 0, "data": {"preClose": 3000.0, "trends": trends}}
 
-        with patch("a_share_volume.fetch_trends_raw", side_effect=mock_fetch):
+        with patch("app.a_share.volume.fetch_tencent_series", side_effect=ValueError("腾讯不可用")), \
+                patch("app.a_share.volume.fetch_trends_raw", side_effect=mock_fetch):
             status_enum, updated_dates, msg, etf_rep = a_share_volume.sync_all_etfs(
                 self.volume_dir, ndays=1, throttle_delay=0
             )

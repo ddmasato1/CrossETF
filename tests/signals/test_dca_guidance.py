@@ -6,7 +6,7 @@ import unittest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-import server
+from app.signals import nasdaq as server
 
 
 class DcaGuidanceTests(unittest.TestCase):

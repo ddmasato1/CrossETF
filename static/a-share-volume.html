@@ -121,7 +121,7 @@
       <div class="panel-head"><div><h2>核心宽基ETF · 分钟成交额</h2><p class="panel-sub">{{ aggregate.etf_count }}只ETF合计 · 上证综指 / 沪深300 / 创业板 / 科创50</p></div><div class="total"><span>当日累计成交额</span><strong>{{ aggregate.cumulative_amount_str }}</strong><small v-if="!aggregate.is_cumulative_complete">数据不完整 · {{ aggregate.completed_minutes_count }}/{{ aggregate.expected_minutes_count }}个完整分钟</small></div></div>
       <div class="legend" aria-label="图例，点击只看单条指数，再点恢复全部">
         <span class="legend-item"><i class="bar-key"></i><span>10只ETF成交额（左轴）</span></span>
-        <button v-for="s in series" :key="s.id" class="legend-item" :class="{off:focusedIndex!==null && focusedIndex!==s.id,focused:focusedIndex===s.id}" :aria-pressed="focusedIndex===s.id" :title="focusedIndex===s.id ? '点击恢复全部指数' : '点击只看'+s.name" @click="toggleSeries(s.id)"><svg class="line-key" aria-hidden="true"><line x1="0" x2="22" y1="5" y2="5" :stroke="s.color" stroke-width="2" :stroke-dasharray="s.dash"/></svg><span class="legend-name">{{ s.name }}</span><strong>{{ indexPoint(s.latest?.index_value) }} · {{ percent(s.latest?.index_change_pct) }}</strong></button>
+        <button v-for="s in series" :key="s.id" class="legend-item" :class="{off:focusedIndex!==null && focusedIndex!==s.id,focused:focusedIndex===s.id}" :aria-pressed="focusedIndex===s.id" :title="focusedIndex===s.id ? '点击恢复全部指数' : '点击只看'+s.name" @click="toggleSeries(s.id)"><svg class="line-key" aria-hidden="true"><line x1="0" x2="22" y1="5" y2="5" :stroke="s.color" stroke-width="2" :stroke-dasharray="s.dash"/></svg><span class="legend-name">{{ s.name }}</span><strong :title="s.readingTime">{{ indexPoint(s.latest?.index_value) }} · {{ percent(s.latest?.index_change_pct) }}</strong><span class="legend-name">{{ s.readingTime }}</span></button>
       </div>
       <div class="plot" tabindex="0" aria-label="核心ETF成交额与四个指数涨跌幅，左右方向键选择分钟" @mousemove="move" @mouseleave="leave" @click="lock" @keydown.left.prevent="stepMinute(-1)" @keydown.right.prevent="stepMinute(1)">
         <svg viewBox="0 0 1400 440" preserveAspectRatio="none" role="img" aria-label="蓝柱为10只ETF一分钟成交额，四条线为主要指数较前收涨跌幅">
@@ -198,7 +198,7 @@
       <p v-else-if="dailyDays.length && (dailyIncomplete || dailyIndexMissing || dailyData?.runtime?.is_syncing || dailyData?.status==='partial')" class="daily-status"><span v-if="dailyIncomplete">所选时段{{ dailyIncomplete }}天成交额不完整，缺项处以×标记。</span><span v-if="dailyIndexMissing">{{ dailyIndexMissing }}天上证指数点位暂缺。</span><span v-if="dailyData?.runtime?.is_syncing">日线数据正在更新。</span><span v-else-if="dailyData?.status==='partial'">部分日线待补采。</span></p>
     </article>
   </main>
-  <footer class="footer"><span>来源：东方财富 · 成交额不等于资金净流入</span><span>左右轴独立缩放 · 分钟线看涨跌幅，日线看收盘点位 · 盘中延迟待实测</span></footer>
+  <footer class="footer"><span>来源：分时腾讯优先／东方财富备用，日线东方财富 · 成交额不等于资金净流入</span><span>左右轴独立缩放 · 分钟线看涨跌幅，日线看收盘点位 · 盘中延迟待实测</span></footer>
 </div>
 <script>
 const {createApp,ref,computed,onMounted,onUnmounted}=Vue;
@@ -281,7 +281,15 @@ createApp({setup(){
   const points=computed(()=>allPoints.value.slice(rangeStart.value,rangeEnd.value+1));
   const amountMax=computed(()=>{const max=Math.max(0,...points.value.filter(p=>finite(p.amount)).map(p=>p.amount)),step=niceStep((max||1e6)/4);return Math.ceil(Math.max(max,1)/step)*step;});
   const amountY=value=>398-Math.max(0,value)/amountMax.value*370;
-  const series=computed(()=>indexStyles.map(style=>{const group=groups.value.find(g=>g.id===style.id),byTime=new Map((group?.minutes||[]).map(p=>[p.time,p]));const all=standardMinutes.map((time,slot)=>({time,slot,index_change_pct:null,...byTime.get(time)}));return{...style,all,points:all.slice(rangeStart.value,rangeEnd.value+1),latest:[...all].reverse().find(p=>finite(p.index_value))||null};}));
+  const series=computed(()=>indexStyles.map(style=>{
+    const group=groups.value.find(g=>g.id===style.id),byTime=new Map((group?.minutes||[]).map(p=>[p.time,p]));
+    const all=standardMinutes.map((time,slot)=>({time,slot,index_change_pct:null,...byTime.get(time)}));
+    const minute=[...all].reverse().find(p=>finite(p.index_value))||null,snapshot=group?.index_info?.snapshot;
+    const snapshotTime=snapshot?.time?.slice(11,19),useSnapshot=finite(snapshot?.point)&&snapshotTime&&snapshotTime.slice(0,5)>=(minute?.time||'');
+    const latest=useSnapshot?{index_value:snapshot.point,index_change_pct:snapshot.change_pct}:minute;
+    const readingTime=useSnapshot?`快照 ${snapshotTime} · 曲线截止 ${minute?.time||'暂无'}`:`分时 ${minute?.time||'暂无'}`;
+    return{...style,all,points:all.slice(rangeStart.value,rangeEnd.value+1),latest,readingTime};
+  }));
   const visibleSeries=computed(()=>focusedIndex.value===null?series.value:series.value.filter(s=>s.id===focusedIndex.value));
   const missingIndices=computed(()=>series.value.filter(s=>!finite(s.latest?.index_change_pct)).map(s=>s.name));
   const percentScale=computed(()=>{

@@ -1,7 +1,7 @@
 """年初至今字段的真实行情解析回归（模拟上游，无网络或归档写入）。"""
 import unittest
 from unittest.mock import patch
-import server
+from app.market import quotes as server
 
 
 class YtdReturnsTests(unittest.TestCase):

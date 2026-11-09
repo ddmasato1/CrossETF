@@ -6,7 +6,8 @@ import time
 import io
 import inspect
 
-import server
+from app.market import quotes as server
+from server import DashboardHandler
 
 
 def _registry():
@@ -156,7 +157,7 @@ def test_symbol_refresh_and_market_refresh_share_lock():
             market_discovery_entered.set()
         return _registry()
 
-    class LocalHandler(server.DashboardHandler):
+    class LocalHandler(DashboardHandler):
         def __init__(self):
             self.path = "/api/refresh-symbols"
             self.wfile = io.BytesIO()

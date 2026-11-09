@@ -25,7 +25,10 @@ import inspect
 import tempfile
 import threading
 import time
-import server
+from app.market import history as closing_history
+from app.market import quotes as market_data
+from app.signals import nasdaq as server
+from app.core.config import CURRENT_DIR
 from server import DashboardHandler
 
 def run_tests():
@@ -162,10 +165,10 @@ def run_tests():
     print("✅ 测试 6 通过: 升降序空值稳定沉底，全无效时均值/极值严格返回 None")
 
     # 7. 测试每日收盘历史沉淀与幂等性
-    test_hist_file = os.path.join(server.CURRENT_DIR, "test_history_tmp.json")
-    orig_hist_file = server.HISTORY_FILE
+    test_hist_file = os.path.join(CURRENT_DIR, "test_history_tmp.json")
+    orig_hist_file = closing_history.HISTORY_FILE
     try:
-        server.HISTORY_FILE = test_hist_file
+        closing_history.HISTORY_FILE = test_hist_file
         if os.path.exists(test_hist_file):
             os.remove(test_hist_file)
 
@@ -183,7 +186,7 @@ def run_tests():
             "sector_etfs": []
         }
         # 首次归档
-        server.record_daily_history(mock_payload)
+        closing_history.record_daily_history(mock_payload)
         assert os.path.exists(test_hist_file), "历史归档文件必须成功生成"
         with open(test_hist_file, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -193,20 +196,20 @@ def run_tests():
         assert data["2026-10-16"]["etfs"][0]["open"] == 1.68
 
         # 再次调用验证幂等性（条目数仍为 1）
-        server.record_daily_history(mock_payload)
+        closing_history.record_daily_history(mock_payload)
         with open(test_hist_file, "r", encoding="utf-8") as f:
             data2 = json.load(f)
         assert len(data2) == 1, "幂等性校验失败：重复写入了条目"
         print("✅ 测试 7 通过: 每日收盘历史安全归档与幂等性验证通过")
     finally:
-        server.HISTORY_FILE = orig_hist_file
+        closing_history.HISTORY_FILE = orig_hist_file
         if os.path.exists(test_hist_file):
             os.remove(test_hist_file)
 
     # -------------------------------------------------------------
     # 测试 8: 移动端核心卡片与桌面表格静态结构
     # -------------------------------------------------------------
-    index_file = os.path.join(server.CURRENT_DIR, "static", "index.html")
+    index_file = os.path.join(CURRENT_DIR, "static", "index.html")
     with open(index_file, "r", encoding="utf-8") as f:
         index_html = f.read()
 
@@ -330,7 +333,7 @@ def run_tests():
             assert calls["count"] == 1, f"并发请求不应重复抓取，实际 {calls['count']} 次"
             assert all(status_code == 200 for status_code, _ in results)
 
-        market_source = inspect.getsource(server.get_market_data)
+        market_source = inspect.getsource(market_data.get_market_data)
         assert "get_fear_greed_data" not in market_source and "FEAR_GREED" not in market_source, "/api/quotes 行情函数不得依赖情绪模块"
     finally:
         server.FEAR_GREED_CACHE_FILE = original_cache_file
@@ -460,7 +463,7 @@ def run_tests():
     assert 'PE分位60%' not in card and '美债15%' not in card
     assert 'dcaGuidance.score' not in card and 'dcaGuidance.amount' in card, "应展示投入档位，不能伪装为风险分数"
     assert '连续3个评估日' in card and '考虑止盈' in card
-    market_source = inspect.getsource(server.get_market_data)
+    market_source = inspect.getsource(market_data.get_market_data)
     assert 'qqq_52w' not in market_source and 'usQQQ' not in market_source, "52周字段及QQQ额外请求必须移除"
     assert 'qqq_52w' not in index_html and 'pos_52w' not in index_html
     # 估值采用独立缓存：异常、冷却、重启、并发均不能改变定投计划。
@@ -535,8 +538,8 @@ def run_tests():
     finally:
         server.valuation_cache.clear()
         server.valuation_cache.update(original_state)
-    assert "get_valuation_data" not in inspect.getsource(server.get_market_data)
-    assert "get_valuation_data" not in inspect.getsource(server.record_daily_history)
+    assert "get_valuation_data" not in inspect.getsource(market_data.get_market_data)
+    assert "get_valuation_data" not in inspect.getsource(closing_history.record_daily_history)
     print("✅ 测试 12 通过: 每日建议展示、估值校验/持久化/冷却/并发与行情隔离验证通过")
 
     print("=" * 60)
